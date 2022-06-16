@@ -1,21 +1,93 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,800;0,900;1,100;1,200;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Kdam+Thmor+Pro&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,800;0,900;1,100;1,200;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 
 html,
 body {
   padding: 0;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
-    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+  font-family: gotham;
+  overflow-x: hidden;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+.categories .swiper-button-prev::after,
+.categories .swiper-button-next::after {
+  font-size: 6px;
+  background-color: rgb(255, 245, 245);
+  padding: 10px;
+  border-radius: 50%;
+  color: black;
+}
+.categories .swiper-button-prev:hover::after,
+.categories .swiper-button-next:hover::after {
+  background-color: rgb(255, 255, 255);
+}
+/*
+.account-nav-cont .account-card{
+  visibility: hidden;
 }
 
-* {
-  box-sizing: border-box;
+.account-nav-cont:hover .account-card{
+  visibility: visible;
+}
+
+.account-card:hover{
+  visibility: visible;
+}
+*/
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    height: 0px;
+  }
+  to {
+    opacity: 1;
+    height: 300px;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 1;
+    height: 300px;
+  }
+  to {
+    opacity: 0;
+    height: 0px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-height: 750px) and (max-height: 820px) {
+  .foods-list {
+    margin-top: 42vh !important;
+  }
+}
+
+@media (min-height: 820px) and (max-height: 915px) {
+  .foods-list {
+    margin-top: 40vh !important;
+  }
+}
+
+@media (min-height: 915px) and (max-height: 1130px) {
+  .foods-list {
+    margin-top: 35vh !important;
+  }
+}
+
+@media (min-height: 1130px) {
+  .foods-list {
+    margin-top: 32vh !important;
+  }
 }
