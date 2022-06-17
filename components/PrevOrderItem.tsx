@@ -6,7 +6,7 @@ interface props {
 }
 
 const PrevOrderItem: React.FC<props> = ({ isMounted }) => {
-  const hasTransitionedIn = useMountTransition(Boolean(isMounted), 1000);
+  const hasTransitionedIn = useMountTransition(Boolean(isMounted), 180);
   const [slideAnimComplete, setSlideAnimComplete] = useState(false);
 
   useEffect(() => {
@@ -29,9 +29,13 @@ const PrevOrderItem: React.FC<props> = ({ isMounted }) => {
     <>
       {(hasTransitionedIn || isMounted) && (
         <div
-          className={`w-full transition-all ${
+          className={`w-full transition-all  ${
             slideAnimComplete ? "overflow-y-auto" : "overflow-hidden"
-          } duration-500`}
+          } duration-500 ${
+            isMounted
+              ? "animate-[slide-down_0.2s_ease-in]"
+              : "animate-[slide-up_0.2s_ease-out]"
+          }`}
         >
           <div className={`flex flex-col items-center p-2 sm:p-5 w-full`}>
             <div

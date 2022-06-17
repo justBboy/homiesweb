@@ -1,23 +1,15 @@
 import {
   ConfirmationResult,
-  FacebookAuthProvider,
   signInWithPhoneNumber,
-  signInWithRedirect,
   updateEmail,
-  User,
 } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FormEvent, useEffect, useState } from "react";
 import { AiOutlineLoading, AiOutlineLoading3Quarters } from "react-icons/ai";
 import { BsCheckLg } from "react-icons/bs";
-import { ImFacebook2 } from "react-icons/im";
 import CenterModal from "../components/CenterModal";
-import {
-  registerUserFacebook,
-  selectUser,
-  setUser,
-} from "../features/auth/authSlice";
+import { selectUser, setUser } from "../features/auth/authSlice";
 import { useAppDispatch, useAppSelector } from "../features/hooks";
 import useRecaptcha from "../features/hooks/useRecaptcha";
 import { validateLoginForm } from "../features/validators";
@@ -74,7 +66,7 @@ const login = () => {
       try {
         const { user } = await confirmationResult.confirm(code);
         setVerificationComplete(true);
-        console.log(user);
+        setVerificationLoading(false);
         setTimeout(() => {
           dispatch(setUser({ phone: user.phoneNumber, email: user.email }));
           if (user.email) {
@@ -82,7 +74,6 @@ const login = () => {
             router.push(next);
           }
         }, 1000);
-        setVerificationLoading(false);
       } catch (err) {
         console.dir(err as any);
         if (typeof err === "object") {
@@ -143,6 +134,7 @@ const login = () => {
       router.push(next);
     }
   }, []);
+  console.log(verificationComplete);
   return (
     <div className={`w-screen min-h-screen bg-graybg flex items-center`}>
       {confirmationResult && !user && (
@@ -150,7 +142,7 @@ const login = () => {
           <div className={`w-full flex flex-col items-center`}>
             <div
               className={`${
-                verificationLoading || (verificationComplete && "h-[120px]")
+                (verificationLoading || verificationComplete) && "h-[120px]"
               }`}
             >
               <AiOutlineLoading3Quarters
@@ -214,7 +206,7 @@ const login = () => {
             className={`w-full flex flex-col h-full items-center px-5 pt-2 mt-2`}
           >
             {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
-            {user ? (
+            {user && !user.email ? (
               <input
                 type="email"
                 placeholder="Enter Your Email"
