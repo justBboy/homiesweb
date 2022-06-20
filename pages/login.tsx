@@ -1,7 +1,9 @@
 import {
   ConfirmationResult,
+  getIdToken,
+  signInWithCustomToken,
   signInWithPhoneNumber,
-  updateEmail,
+  updateProfile,
 } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -14,6 +16,7 @@ import { useAppDispatch, useAppSelector } from "../features/hooks";
 import useRecaptcha from "../features/hooks/useRecaptcha";
 import { validateLoginForm } from "../features/validators";
 import { auth } from "../libs/Firebase";
+import axios from "../libs/axios";
 
 export type loginFormErrors = {
   phone: string;
@@ -28,6 +31,7 @@ const login = () => {
   const [loading, setLoading] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationComplete, setVerificationComplete] = useState(false);
+  const [username, setUsername] = useState("");
   const user = useAppSelector(selectUser);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -66,13 +70,20 @@ const login = () => {
       try {
         const { user } = await confirmationResult.confirm(code);
         setVerificationComplete(true);
-        setVerificationLoading(false);
         setTimeout(() => {
-          dispatch(setUser({ phone: user.phoneNumber, email: user.email }));
-          if (user.email) {
+          dispatch(
+            setUser({
+              uid: user.uid,
+              phone: user.phoneNumber,
+              email: user.email,
+              username: user.displayName,
+            })
+          );
+          if (user.email && user.displayName) {
             const next = router.query["next"]?.toString() || "/";
             router.push(next);
           }
+          setVerificationLoading(false);
         }, 1000);
       } catch (err) {
         console.dir(err as any);
@@ -85,12 +96,23 @@ const login = () => {
       }
     }
   };
-  const handleUpdateEmail = async () => {
+  const handleUpdateDetails = async () => {
     setLoading(true);
     setError("");
     if (auth.currentUser) {
       try {
-        await updateEmail(auth.currentUser, email);
+        //await updateEmail(auth.currentUser, email);
+        await updateProfile(auth.currentUser, {
+          displayName: username,
+        });
+        const token = await getIdToken(auth.currentUser);
+        const res = await axios.post("/auth/registerCustomer", {
+          uid: auth.currentUser.uid,
+          email,
+          token,
+        });
+        if (res.data.error) setError(res.data.error);
+        await signInWithCustomToken(auth, res.data.customToken);
       } catch (err) {
         if (typeof err === "object") {
           if ((err as any).code === "auth/email-already-in-use") {
@@ -107,6 +129,8 @@ const login = () => {
     }
     setLoading(false);
   };
+
+  console.log(user);
   /*
   const handleFacebookLogin = async (e: any) => {
     e.preventDefault();
@@ -206,14 +230,23 @@ const login = () => {
             className={`w-full flex flex-col h-full items-center px-5 pt-2 mt-2`}
           >
             {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
-            {user && !user.email ? (
-              <input
-                type="email"
-                placeholder="Enter Your Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`sm:w-[400px] w-[280px] animate__bounceIn p-2 outline-orange-600 border border-slate-400 shadow rounded mb-4`}
-              />
+            {(user && !user.username) || (user && !user.email) ? (
+              <>
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className={`sm:w-[400px] w-[280px] animate__animated animate__shakeX p-2 outline-orange-600 border border-slate-400 shadow rounded mb-4`}
+                />
+                <input
+                  type="email"
+                  placeholder="Enter Your Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`sm:w-[400px] w-[280px] animate__animated animate__shakeX p-2 outline-orange-600 border border-slate-400 shadow rounded mb-4`}
+                />
+              </>
             ) : (
               <input
                 type="tel"
@@ -227,7 +260,7 @@ const login = () => {
               <div id="recaptcha-div"></div>
               <button
                 onClick={(e) => {
-                  if (user) handleUpdateEmail();
+                  if (user) handleUpdateDetails();
                   else handleSubmit(e);
                 }}
                 disabled={loading}

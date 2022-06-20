@@ -8,8 +8,12 @@ import {
 } from "./authApi";
 
 export type userType = {
+  uid: string;
+  username: string | null;
   phone: string | null;
   email: string | null;
+  admin?: boolean;
+  superadmin?: boolean;
 };
 
 interface state {
