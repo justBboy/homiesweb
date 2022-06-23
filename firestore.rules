@@ -12,10 +12,18 @@ service cloud.firestore {
       allow update: if isSuperAdmin() || request.auth.uid == resource.data.uid;
     }
     match /users/{userId}{
-      allow read: if isAdmin() || request.auth.uid == resource.data.uid
+      allow read: if isAdmin() || request.auth.uid == resource.data.uid;
     }
     match /appGlobals/{id}{
-      allow read: if isAdmin()
+      allow read: if isAdmin();
+    }
+    match /foods/{foodId}{
+      allow read;
+      allow write: if isAdmin();
+    }
+    match /foodCategories/{categoryId}{
+      allow read;
+      allow write: if isAdmin();
     }
   }
 }
