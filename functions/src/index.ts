@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 import * as express from "express";
 import * as cors from "cors";
 import routes from "./routes";
-import { appGlobalId, onOrderAdded, onUpdateOrder } from "./constants/utils";
+import { onOrderAdded, onOrderDeleted, onUpdateOrder } from "./constants/utils";
 import { orderType } from "./constants/types";
 
 admin.initializeApp();
@@ -113,6 +113,98 @@ exports.onCustomerUpdated = functions.firestore
     return true;
   });
 
+exports.agentRequestCreated = functions.firestore
+  .document("/agentRequests/{agentRequestId}")
+  .onCreate(async (snap, context) => {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("agentRequests")
+      .set(
+        {
+          agentRequestsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          agentRequestsCount: admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
+    return false;
+  });
+
+exports.onAgentRequestDeleted = functions.firestore
+  .document("/agentRequests/{agentRequestId}")
+  .onDelete(async (snap, context) => {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("agentRequests")
+      .set(
+        {
+          agentRequestsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          agentRequestsCount: admin.firestore.FieldValue.increment(-1),
+        },
+        { merge: true }
+      );
+    return true;
+  });
+
+exports.onAgentRequestUpdated = functions.firestore
+  .document("/agentRequests/{agentRequestId}")
+  .onUpdate(async (snap, context) => {
+    await admin.firestore().collection("appGlobals").doc("agentRequests").set(
+      {
+        agentRequestsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return true;
+  });
+
+exports.agentCreated = functions.firestore
+  .document("/agents/{agentId}")
+  .onCreate(async (snap, context) => {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("agents")
+      .set(
+        {
+          agentsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          agentsCount: admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
+    return false;
+  });
+
+exports.onAgentDeleted = functions.firestore
+  .document("/agents/{agentId}")
+  .onDelete(async (snap, context) => {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("agents")
+      .set(
+        {
+          agentsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          agentsCount: admin.firestore.FieldValue.increment(-1),
+        },
+        { merge: true }
+      );
+    return true;
+  });
+
+exports.onAgentUpdated = functions.firestore
+  .document("/agents/{agentId}")
+  .onUpdate(async (snap, context) => {
+    await admin.firestore().collection("appGlobals").doc("agents").set(
+      {
+        agentsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return true;
+  });
+
 exports.onFoodCreated = functions.firestore
   .document("/foods/{foodId}")
   .onCreate(async (snap, context) => {
@@ -122,10 +214,13 @@ exports.onFoodCreated = functions.firestore
         .firestore()
         .collection("appGlobals")
         .doc("foods")
-        .set({
-          foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-          foodsCount: admin.firestore.FieldValue.increment(1),
-        });
+        .set(
+          {
+            foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+            foodsCount: admin.firestore.FieldValue.increment(1),
+          },
+          { merge: true }
+        );
       const matches = await admin
         .firestore()
         .collection("foodCategories")
@@ -136,9 +231,12 @@ exports.onFoodCreated = functions.firestore
           .firestore()
           .collection("foodCategories")
           .doc(foodCategory.id)
-          .update({
-            numFoods: admin.firestore.FieldValue.increment(1),
-          });
+          .set(
+            {
+              numFoods: admin.firestore.FieldValue.increment(1),
+            },
+            { merge: true }
+          );
     } catch (err) {
       console.log(err);
     }
@@ -153,10 +251,13 @@ exports.onFoodDeleted = functions.firestore
         .firestore()
         .collection("appGlobals")
         .doc("foods")
-        .set({
-          foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-          foodsCount: admin.firestore.FieldValue.increment(-1),
-        });
+        .set(
+          {
+            foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+            foodsCount: admin.firestore.FieldValue.increment(-1),
+          },
+          { merge: true }
+        );
       const matches = await admin
         .firestore()
         .collection("foodCategories")
@@ -167,9 +268,12 @@ exports.onFoodDeleted = functions.firestore
           .firestore()
           .collection("foodCategories")
           .doc(foodCategory.id)
-          .update({
-            numFoods: admin.firestore.FieldValue.increment(-1),
-          });
+          .set(
+            {
+              numFoods: admin.firestore.FieldValue.increment(-1),
+            },
+            { merge: true }
+          );
     } catch (err) {
       console.log(err);
     }
@@ -193,9 +297,12 @@ exports.onFoodUpdated = functions.firestore
             .firestore()
             .collection("foodCategories")
             .doc(foodCategory.id)
-            .update({
-              numFoods: admin.firestore.FieldValue.increment(-1),
-            });
+            .set(
+              {
+                numFoods: admin.firestore.FieldValue.increment(-1),
+              },
+              { merge: true }
+            );
 
         // increment after category number of foods
         const amatches = await admin
@@ -208,13 +315,19 @@ exports.onFoodUpdated = functions.firestore
             .firestore()
             .collection("foodCategories")
             .doc(foodCategory.id)
-            .update({
-              numFoods: admin.firestore.FieldValue.increment(1),
-            });
+            .set(
+              {
+                numFoods: admin.firestore.FieldValue.increment(1),
+              },
+              { merge: true }
+            );
       }
-      await admin.firestore().collection("appGlobals").doc("foods").set({
-        foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      await admin.firestore().collection("appGlobals").doc("foods").set(
+        {
+          foodsLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (err) {
       console.log(err);
     }
@@ -227,10 +340,14 @@ exports.onFoodCategoryCreated = functions.firestore
       .firestore()
       .collection("appGlobals")
       .doc("foods")
-      .set({
-        foodCategoriesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-        foodCategoriesCount: admin.firestore.FieldValue.increment(1),
-      });
+      .set(
+        {
+          foodCategoriesLastUpdate:
+            admin.firestore.FieldValue.serverTimestamp(),
+          foodCategoriesCount: admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
   });
 
 exports.onFoodCategoryDeleted = functions.firestore
@@ -240,31 +357,44 @@ exports.onFoodCategoryDeleted = functions.firestore
       .firestore()
       .collection("appGlobals")
       .doc("foods")
-      .set({
-        foodCategoriesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-        foodCategoriesCount: admin.firestore.FieldValue.increment(-1),
-      });
+      .set(
+        {
+          foodCategoriesLastUpdate:
+            admin.firestore.FieldValue.serverTimestamp(),
+          foodCategoriesCount: admin.firestore.FieldValue.increment(-1),
+        },
+        { merge: true }
+      );
   });
 
 exports.onFoodCategoryUpdated = functions.firestore
   .document("foods/{categoryId}")
   .onUpdate(async (snap, context) => {
-    await admin.firestore().collection("appGlobals").doc("foods").set({
-      foodCategoriesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    await admin.firestore().collection("appGlobals").doc("foods").set(
+      {
+        foodCategoriesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
   });
 
 // incrementing orders and sales in months and dates
 // on created and updated
 
 exports.onOrderCreated = functions.firestore
-  .document("order/{orderId}")
+  .document("orders/{orderId}")
   .onCreate(async (snap, context) => {
-    onOrderAdded(snap.data() as orderType);
+    await onOrderAdded(snap.data() as orderType);
   });
 
 exports.onOrderUpdated = functions.firestore
-  .document("order/{orderId}")
+  .document("orders/{orderId}")
   .onUpdate(async (snap, context) => {
     await onUpdateOrder(snap);
+  });
+
+exports.onOrderDeleted = functions.firestore
+  .document("/orders/{orderId}")
+  .onDelete(async (snap, context) => {
+    await onOrderDeleted(snap.data() as orderType);
   });

@@ -16,11 +16,15 @@ import vegetableAnim from "../animations/clean-vegetable.json";
 import beverageAnim from "../animations/burger.json";
 import RightModal from "./RightModal";
 import FoodCart from "./FoodCart";
-import useClickOutsideDetector from "../features/hooks/useClickOutsideDetector";
 import { auth } from "../libs/Firebase";
-import { signOut, User } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import ConfirmModal from "./ConfirmModal";
 import { GoPrimitiveDot } from "react-icons/go";
+import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
+import { useAppSelector } from "../features/hooks";
+import { selectCategories } from "../features/categories/categoriesSlice";
+import { collection, doc, getDoc } from "firebase/firestore";
+import { selectCarts } from "../features/cart/cartSlice";
 
 interface props {
   scrolled?: boolean;
@@ -30,10 +34,13 @@ interface props {
 
 const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
   const accountContainerRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<User | null>(auth.currentUser);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const cart = useAppSelector(selectCarts);
+  const [cartTotalAmount, setCartTotalAmount] = useState(0);
+  const { user, completed } = useFirebaseAuth();
   const [search, setSearch] = useState("");
+
   const [showMenu, setShowMenu] = useState(false);
   const [accountClicked, setAccountClicked] = useState(false);
   const foodChoiceOptions = {
@@ -58,7 +65,6 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
   const handleLogout = async () => {
     setLogoutLoading(true);
     await signOut(auth);
-    setUser(null);
     setLogoutLoading(false);
   };
 
@@ -67,6 +73,13 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
       setAccountClicked(false);
     }
   }, [scrolled]);
+
+  useEffect(() => {
+    const totalAmount = cart.reduce((p, c, indx) => {
+      return p + c.price * c.quantity;
+    }, 0);
+    setCartTotalAmount(totalAmount);
+  }, [cart]);
 
   useEffect(() => {
     let evt = (e: any) => {
@@ -84,9 +97,6 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
     };
   }, []);
 
-  useEffect(() => {
-    setUser(auth.currentUser);
-  }, [auth.currentUser]);
   return (
     <>
       {logoutConfirm && (
@@ -148,7 +158,7 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
                 {user ? (
                   <>
                     <p className="text-sm font-thin text-center mt-2 break-words">
-                      {user.email || user.phoneNumber}
+                      {user.username || user.email || user.phone}
                     </p>
                     <a
                       onClick={() => {
@@ -192,50 +202,61 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
                     </a>
                   </Link>
                   <hr />
-                  <Link href="/agentConsole">
-                    <a
-                      className={`flex items-center hover:bg-slate-200 w-full p-2 mt-2 cursor-pointer mb-2`}
-                    >
-                      <AiOutlineShareAlt className={`text-xl text-slate-600`} />
-                      <span className={`text-sm ml-2 font-gotham font-bold`}>
-                        Agent Console
-                      </span>
-                    </a>
-                  </Link>
+                  {user?.agent && (
+                    <Link href="/agentConsole">
+                      <a
+                        className={`flex items-center hover:bg-slate-200 w-full p-2 mt-2 cursor-pointer mb-2`}
+                      >
+                        <AiOutlineShareAlt
+                          className={`text-xl text-slate-600`}
+                        />
+                        <span className={`text-sm ml-2 font-gotham font-bold`}>
+                          Agent Console
+                        </span>
+                      </a>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
 
-            <Link href="/agentRequest">
-              <a className="mr-2 sm:mr-5">
-                <div className={`flex items-center`}>
-                  <BiUserCheck
-                    className={`text-slate-100 text-md sm:text-2xl mr-1`}
+            {!user?.admin && !user?.superadmin && !user?.agent && (
+              <Link href="/agentRequest">
+                <a className="mr-2 sm:mr-5">
+                  <div className={`flex items-center overflow-hidden`}>
+                    <BiUserCheck
+                      className={`text-slate-100 text-md sm:text-2xl mr-1`}
+                    />
+                    <h6
+                      className={`font-gothamLight transition-width duration-1000 font-xs sm:font-md text-xs sm:text-md font-md text-white mr-1`}
+                    >
+                      Become An Agent
+                    </h6>
+                  </div>
+                </a>
+              </Link>
+            )}
+
+            {!!cart.length && (
+              <a
+                href="#FoodMenu"
+                onClick={() => {
+                  setShowMenu(true);
+                  return;
+                }}
+              >
+                <div className={`relative flex items-center`}>
+                  <BiFoodMenu
+                    className={`text-slate-100 text-lg sm:text-3xl`}
                   />
-                  <h6
-                    className={`font-gothamLight font-xs sm:font-md text-xs sm:text-md font-md text-white mr-1`}
+                  <div
+                    className={`absolute top-[-5px] right-[-5px] w-[18px] h-[18px] text-center rounded-[50%] bg-[#e31] text-xs flex justify-center items-center text-slate-200`}
                   >
-                    Become An Agent
-                  </h6>
+                    <span className={``}>{cart.length}</span>
+                  </div>
                 </div>
               </a>
-            </Link>
-            <a
-              href="#FoodMenu"
-              onClick={() => {
-                setShowMenu(true);
-                return;
-              }}
-            >
-              <div className={`relative flex items-center`}>
-                <BiFoodMenu className={`text-slate-100 text-lg sm:text-3xl`} />
-                <div
-                  className={`absolute top-[-5px] right-[-5px] w-[18px] h-[18px] text-center rounded-[50%] bg-[#e31] text-xs flex justify-center items-center text-slate-200`}
-                >
-                  <span className={``}>2</span>
-                </div>
-              </div>
-            </a>
+            )}
           </div>
         </div>
       </div>
@@ -247,14 +268,16 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
           scrolled ? "visible opacity-1 scale-1" : "invisible opacity-0 scale-0"
         } p-0 w-12 h-12 bg-red-600 rounded-full hover:bg-red-700 active:shadow-lg mouse shadow transition-all ease-out duration-1000 focus:outline-none`}
       >
-        <div className="relative">
-          <BiCart className={`text-3xl text-white`} />
-          <div
-            className={`absolute top-[-5px] right-[-5px] w-[18px] h-[18px] text-center rounded-[50%] bg-[#eee] text-xs flex justify-center items-center text-slate-800`}
-          >
-            <span className={``}>2</span>
+        {!!cart.length && (
+          <div className="relative">
+            <BiCart className={`text-3xl text-white`} />
+            <div
+              className={`absolute top-[-5px] right-[-5px] w-[18px] h-[18px] text-center rounded-[50%] bg-[#eee] text-xs flex justify-center items-center text-slate-800`}
+            >
+              <span className={``}>{cart.length}</span>
+            </div>
           </div>
-        </div>
+        )}
       </button>
       {children}
       <RightModal
@@ -276,15 +299,22 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
           </a>
           <h3 className={`font-gothamBold font-2xl`}>Your Food Cart</h3>
           <div className={`w-[90%] mx-auto`}>
-            <FoodCart
-              name="Banku And Okro Stew"
-              img="/images/banku.webp"
-              price={20}
-            />
+            {cart.map((c) => {
+              return (
+                <FoodCart
+                  key={c.id}
+                  id={c.id}
+                  name={c.name}
+                  img={c.imgURL}
+                  price={c.price}
+                  quantity={c.quantity}
+                />
+              );
+            })}
           </div>
           <div className={`w-full flex flex-col items-end`}>
-            <h2 className="ml-auto text-sm font-bold font-gothamBlack">
-              Total: Ghs20
+            <h2 className="ml-auto text-sm font-gotham">
+              Total: ₵{cartTotalAmount}
             </h2>
           </div>
           <Link href="/checkout">

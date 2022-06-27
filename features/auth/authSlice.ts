@@ -14,6 +14,7 @@ export type userType = {
   email: string | null;
   admin?: boolean;
   superadmin?: boolean;
+  agent?: boolean;
 };
 
 interface state {

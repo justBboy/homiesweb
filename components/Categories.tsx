@@ -1,9 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import "swiper/css";
 import "swiper/css/navigation";
 import { Navigation } from "swiper";
+import { useAppDispatch, useAppSelector } from "../features/hooks";
+import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
+import {
+  getFoodCategories,
+  selectCategories,
+} from "../features/categories/categoriesSlice";
+import axios from "../libs/axios";
+import Image from "next/image";
 
 const categories = [
   {
@@ -38,11 +46,46 @@ interface props {
 }
 
 const Categories: React.FC<props> = ({ scrolled }) => {
+  const dispatch = useAppDispatch();
   const [active, setActive] = useState("all");
+  const [lastUpdateComplete, setLastUpdateComplete] = useState(false);
+  const categories = useAppSelector(selectCategories);
+  const { user, completed } = useFirebaseAuth();
+  const [totalFoodCategories, setTotalFoodCategories] = useState(0);
+  const [foodCategoriesLastUpdate, setFoodCategoriesLastUpdate] = useState(0);
+  const [foodCategoriesLoading, setfoodCategoriesLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setfoodCategoriesLoading(true);
+      console.log(lastUpdateComplete);
+      if (lastUpdateComplete) {
+        await dispatch(
+          getFoodCategories({ page: 1, lastUpdate: foodCategoriesLastUpdate })
+        );
+        setfoodCategoriesLoading(false);
+      }
+    })();
+  }, [lastUpdateComplete, dispatch, foodCategoriesLastUpdate]);
+
+  useEffect(() => {
+    (async () => {
+      setLastUpdateComplete(false);
+      const res = await axios.get("/users/foodGlobals");
+      const globals: any = res.data;
+      setFoodCategoriesLastUpdate(
+        globals?.foodCategoriesLastUpdate?.nanoseconds || 0
+      );
+      setLastUpdateComplete(true);
+    })();
+  }, []);
 
   const handleChangeActive = (current: string) => {
     setActive(current);
   };
+
+  console.log(categories);
+
   return (
     <div
       className={`mx-auto md:max-w-[740px] xl:max-w-[992px] rounded 2xl:max-w-[1024px] categories py-10 transition-transform duration-1000 overflow-hidden w-80% ${
@@ -54,6 +97,7 @@ const Categories: React.FC<props> = ({ scrolled }) => {
         style={{ overflow: "visible" }}
         spaceBetween={30}
         slidesPerView={3}
+        centeredSlides
         navigation
         breakpoints={{
           640: {
@@ -83,7 +127,7 @@ const Categories: React.FC<props> = ({ scrolled }) => {
                 className="w-[50px] h-[50px] rounded-[50%]"
                 alt="All Foods category"
               />
-              <span className="ml-3 text-md font-bold font-gotham text-uppercase">
+              <span className="ml-3 text-sm font-gotham text-uppercase">
                 All Foods
               </span>
             </div>
@@ -100,12 +144,14 @@ const Categories: React.FC<props> = ({ scrolled }) => {
                 active === category.name ? "shadow-xl" : "shadow-sm"
               }`}
             >
-              <img
-                src={category.img}
-                className="w-[50px] h-[50px] rounded-[50%]"
+              <Image
+                src={category.imgURL?.toString() || ""}
+                width={50}
+                height={50}
+                className="rounded-[50%]"
                 alt={`${category.name} category`}
               />
-              <span className="ml-3 text-md font-bold font-gotham text-uppercase">
+              <span className="ml-3 text-sm font-gotham text-uppercase">
                 {category.name}
               </span>
             </div>

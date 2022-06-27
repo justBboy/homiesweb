@@ -4,6 +4,8 @@ export type orderType = {
   customerName?: string;
   customerPhone?: string;
   createdBy: string;
+  failed?: boolean;
+  completed?: boolean;
   items: {
     id: string;
     itemCategory: string;

@@ -15,7 +15,6 @@ body {
 .categories .swiper-button-next::after {
   font-size: 6px;
   background-color: rgb(255, 245, 245);
-  box-shadow: 2px 5px 14px 0px rgba(0, 0, 0, 0.75);
   padding: 10px;
   border-radius: 50%;
   color: black;
@@ -23,7 +22,6 @@ body {
 .categories .swiper-button-prev:hover::after,
 .categories .swiper-button-next:hover::after {
   background-color: rgb(255, 255, 255);
-  box-shadow: 3px 7px 14px 0px rgba(0, 0, 0, 0.75);
 }
 /*
 .account-nav-cont .account-card{

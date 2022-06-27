@@ -25,7 +25,7 @@ export type loginForm = {
   phone: string;
   error: Partial<loginFormErrors> | null;
 };
-const login = () => {
+const Login = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -308,4 +308,4 @@ const login = () => {
   );
 };
 
-export default login;
+export default Login;

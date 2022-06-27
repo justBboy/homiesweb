@@ -11,6 +11,13 @@ export const validateEmail = (email: string) => {
   return error;
 };
 
+export const validatePhone = (phone: string) => {
+  let error = "";
+  if (!phone || !phoneNumberPattern.test(phone) || phone.length !== 10)
+    error = "Phone Number pattern incorrect";
+  return error;
+};
+
 export const validateRegisterForm = (form: registerForm) => {
   const errors: Partial<registerFormError> = {};
   if (!form.email || !emailPattern.test(form.email))

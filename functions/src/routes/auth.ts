@@ -7,10 +7,6 @@ import { baseURL } from "../constants/utils";
 
 const router = express.Router();
 
-router.get("/test", async (req, res) => {
-  res.send("testing");
-});
-
 const adminRegisterSchema = joi.object({
   name: joi.string().min(7).max(64).required(),
   phoneNumber: joi.string().length(10).required(),

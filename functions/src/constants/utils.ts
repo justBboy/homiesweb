@@ -1,73 +1,115 @@
 export const baseURL = "http://localhost:3000";
 export const appGlobalId = "global";
+export const phoneNumberPattern = /^[0]?\d{9}$/;
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { orderType } from "./types";
 
 export const updateOrderOnDocs = () => {};
 
-export const onUpdateOrder = async (
-  snap: functions.Change<functions.firestore.QueryDocumentSnapshot>
-) => {
-  const order: any = await snap.after.data();
-  const categories = getCategoriesFromOrder(order);
-  if (order.completed) {
-    for (const food of order.items) await addOrderOnFood(food);
-    for (const category of categories)
-      updateOrderOnCategory(
-        category.id,
-        category.quantity,
-        category.totalSales,
-        false
+const addOrderOnFood = async (food: {
+  id: string;
+  itemCategory: string;
+  price: number;
+  quantity: number;
+}) => {
+  try {
+    const matches = await admin
+      .firestore()
+      .collection("foods")
+      .where("id", "==", food.id)
+      .get();
+    for (const f of matches.docs)
+      f.ref.set(
+        {
+          orders: admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
       );
-
-    await addOrderCompletedToGlobals(order.totalPrice);
-  } else if (order.failed) {
-    for (const food of order.items) await addOrderFailureOnFood(food);
-    for (const category of categories)
-      updateOrderOnCategory(
-        category.id,
-        category.quantity,
-        category.totalSales,
-        true
-      );
-    await addOrderFailureToGlobals();
+  } catch (err) {
+    console.log("on food error ============> ", err);
   }
 };
 
-const addOrderOnFood = async (food: any) => {
-  const matches = await admin
-    .firestore()
-    .collection("foods")
-    .where("id", "==", food.id)
-    .get();
-  for (const f of matches.docs)
-    await admin
+const deleteOrderOnFood = async (food: {
+  id: string;
+  itemCategory: string;
+  price: number;
+  quantity: number;
+}) => {
+  try {
+    const matches = await admin
       .firestore()
       .collection("foods")
-      .doc(f.id)
-      .update({
-        orders: admin.firestore.FieldValue.increment(1),
-        sales: admin.firestore.FieldValue.increment(
-          f.data().price * food.quantity
-        ),
-      });
+      .where("id", "==", food.id)
+      .get();
+    for (const f of matches.docs)
+      await admin
+        .firestore()
+        .collection("foods")
+        .doc(f.id)
+        .set(
+          {
+            orders: admin.firestore.FieldValue.increment(-1),
+          },
+          { merge: true }
+        );
+  } catch (err) {
+    console.log("on food error ============> ", err);
+  }
 };
 
-const addOrderFailureOnFood = async (food: any) => {
-  const matches = await admin
-    .firestore()
-    .collection("foods")
-    .where("id", "==", food.id)
-    .get();
-  for (const f of matches.docs)
-    await admin
+const addSaleOnFood = async (food: any) => {
+  try {
+    const matches = await admin
       .firestore()
       .collection("foods")
-      .doc(f.id)
-      .update({
-        failed: admin.firestore.FieldValue.increment(1),
-      });
+      .where("id", "==", food.id)
+      .get();
+    for (const f of matches.docs)
+      await admin
+        .firestore()
+        .collection("foods")
+        .doc(f.id)
+        .set(
+          {
+            sales: admin.firestore.FieldValue.increment(
+              food.price * food.quantity
+            ),
+          },
+          { merge: true }
+        );
+  } catch (err) {
+    console.log("on food error ============> ", err);
+  }
+};
+
+const addOrderFailureOnFood = async (food: {
+  id: string;
+  itemCategory: string;
+  price: number;
+  quantity: number;
+}) => {
+  try {
+    const matches = await admin
+      .firestore()
+      .collection("foods")
+      .where("id", "==", food.id)
+      .get();
+    for (const f of matches.docs)
+      await admin
+        .firestore()
+        .collection("foods")
+        .doc(f.id)
+        .set(
+          {
+            failed: admin.firestore.FieldValue.increment(1),
+          },
+          { merge: true }
+        );
+  } catch (err) {
+    console.log("order failure error ==========> ", err);
+  }
 };
 
 const updateOrderOnCategory = async (
@@ -76,33 +118,119 @@ const updateOrderOnCategory = async (
   sales: number,
   failed: boolean = false
 ) => {
-  if (failed) {
-    await admin
-      .firestore()
-      .collection("foodCategories")
-      .doc(categoryId)
-      .update({
-        failedOrders: quantity,
-      });
-  } else {
-    await admin
-      .firestore()
-      .collection("foodCategories")
-      .doc(categoryId)
-      .update({
+  try {
+    if (failed) {
+      const doc = await admin
+        .firestore()
+        .collection("foodCategories")
+        .doc(categoryId)
+        .get();
+      if (doc.exists)
+        doc.ref.set(
+          {
+            failedOrders: admin.firestore.FieldValue.increment(quantity),
+          },
+          { merge: true }
+        );
+    } else {
+      const doc = await admin
+        .firestore()
+        .collection("foodCategories")
+        .doc(categoryId)
+        .get();
+      if (doc.exists)
+        doc.ref.set(
+          {
+            sales: admin.firestore.FieldValue.increment(sales),
+          },
+          { merge: true }
+        );
+    }
+  } catch (err) {
+    console.log("update order on category error ==============> ", err);
+  }
+};
+
+const addSalesToCategory = async (categoryId: string, sales: number) => {
+  const doc = await admin
+    .firestore()
+    .collection("foodCategories")
+    .doc(categoryId)
+    .get();
+  if (doc.exists)
+    doc.ref.set(
+      {
         sales: admin.firestore.FieldValue.increment(sales),
-      });
+      },
+      { merge: true }
+    );
+};
+
+const deleteOrderOnCategory = async (
+  categoryId: string,
+  quantity: number,
+  sales: number = 0,
+  failed: boolean = false
+) => {
+  try {
+    const doc = await admin
+      .firestore()
+      .collection("foodCategories")
+      .doc(categoryId)
+      .get();
+    if (doc.exists) {
+      if (failed) {
+        if (doc.exists)
+          doc.ref.set(
+            {
+              failedOrders: admin.firestore.FieldValue.increment(-quantity),
+            },
+            { merge: true }
+          );
+      } else {
+        if (doc.exists)
+          doc.ref.set(
+            {
+              ...(sales && {
+                sales: admin.firestore.FieldValue.increment(sales),
+              }),
+            },
+            { merge: true }
+          );
+      }
+      await admin
+        .firestore()
+        .collection("foodCategories")
+        .doc(categoryId)
+        .set(
+          {
+            orders: admin.firestore.FieldValue.increment(-quantity),
+          },
+          { merge: true }
+        );
+    }
+  } catch (err) {
+    console.log("update order on category error ==============> ", err);
   }
 };
 
 const addOrderToCategory = async (categoryId: string, quantity: number) => {
-  await admin
-    .firestore()
-    .collection("foodCategories")
-    .doc(categoryId)
-    .update({
-      orders: admin.firestore.FieldValue.increment(quantity),
-    });
+  try {
+    const doc = await admin
+      .firestore()
+      .collection("foodCategories")
+      .doc(categoryId)
+      .get();
+    if (doc.exists)
+      doc.ref.set(
+        {
+          orders: admin.firestore.FieldValue.increment(quantity),
+        },
+        { merge: true }
+      );
+  } catch (err) {
+    console.log("add to category error ===========> ", err);
+  }
 };
 
 const getCategoriesFromOrder = (order: orderType) => {
@@ -127,9 +255,212 @@ const getCategoriesFromOrder = (order: orderType) => {
   }
   return categories;
 };
+
+const addOrderToGlobals = async (cSale = false) => {
+  const today = new Date();
+  try {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("orders")
+      .set(
+        {
+          //
+          ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          //all orders
+          ordersCount: admin.firestore.FieldValue.increment(1),
+          //month orders all
+          [`orders${today.getMonth() + 1}-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(1),
+          //year orders all
+          [`orders-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(1),
+          //today orders all
+          [`orders${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(1),
+          ...(cSale && {
+            customSalesCount: admin.firestore.FieldValue.increment(1),
+          }),
+          //
+          ...(cSale && {
+            customSalesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          }),
+          // month custom sales
+          ...(cSale && {
+            [`customSales${today.getMonth() + 1}-${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(1),
+          }),
+          // year custom sales
+          ...(cSale && {
+            [`customSales${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(1),
+          }),
+          // today custom sales
+          ...(cSale && {
+            [`customSales${today.getDate()}-${
+              today.getMonth() + 1
+            }-${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(1),
+          }),
+        },
+        { merge: true }
+      );
+  } catch (err) {
+    console.log("order to globals ===========> ", err);
+  }
+};
+
+const deleteOrderToGlobals = async (cSale = false) => {
+  const today = new Date();
+  try {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("orders")
+      .set(
+        {
+          //
+          ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          //all orders
+          ordersCount: admin.firestore.FieldValue.increment(-1),
+          //month orders all
+          [`orders${today.getMonth() + 1}-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(-1),
+          //year orders all
+          [`orders-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(-1),
+          //today orders all
+          [`orders${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}Count`]:
+            admin.firestore.FieldValue.increment(-1),
+          ...(cSale && {
+            customSalesCount: admin.firestore.FieldValue.increment(-1),
+          }),
+          //
+          ...(cSale && {
+            customSalesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          }),
+          // month custom sales
+          ...(cSale && {
+            [`customSales${today.getMonth() + 1}-${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(-1),
+          }),
+          // year custom sales
+          ...(cSale && {
+            [`customSales${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(-1),
+          }),
+          // today custom sales
+          ...(cSale && {
+            [`customSales${today.getDate()}-${
+              today.getMonth() + 1
+            }-${today.getFullYear()}Count`]:
+              admin.firestore.FieldValue.increment(-1),
+          }),
+        },
+        { merge: true }
+      );
+  } catch (err) {
+    console.log("order to globals ===========> ", err);
+  }
+};
+
+const addOrderFailureToGlobals = async () => {
+  const today = new Date();
+  try {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("orders")
+      .set(
+        {
+          ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          // today failed
+          [`orders${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}FailedCount`]:
+            admin.firestore.FieldValue.increment(1),
+          // month failed
+          [`orders${today.getMonth() + 1}-${today.getFullYear()}FailedCount`]:
+            admin.firestore.FieldValue.increment(1),
+          // year failed
+          [`orders${today.getFullYear()}FailedCount`]:
+            admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
+  } catch (err) {
+    console.log("order failure to globals ==========> ", err);
+  }
+};
+
+const addOrderCompletedToGlobals = async (price: number) => {
+  const today = new Date();
+  try {
+    await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("orders")
+      .set(
+        {
+          ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+          //today orders completed
+          [`orders${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}CompletedCount`]:
+            admin.firestore.FieldValue.increment(1),
+          //today sales made
+          [`sales${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}Made`]:
+            admin.firestore.FieldValue.increment(price),
+          //month sales made
+          [`sales${today.getMonth() + 1}-${today.getFullYear()}Made`]:
+            admin.firestore.FieldValue.increment(price),
+          //year sales made
+          [`sales${today.getFullYear()}Made`]:
+            admin.firestore.FieldValue.increment(price),
+          //month orders completed
+          [`orders${
+            today.getMonth() + 1
+          }-${today.getFullYear()}CompletedCount`]:
+            admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
+  } catch (err) {
+    console.log("order to globals err ============> ", err);
+  }
+};
+
+export const onOrderDeleted = async (data: orderType) => {
+  const categories = getCategoriesFromOrder(data);
+  for (const food of data.items) {
+    await deleteOrderOnFood(food);
+  }
+  for (const category of categories)
+    await deleteOrderOnCategory(
+      category.id,
+      category.quantity,
+      category.totalSales
+    );
+
+  await deleteOrderToGlobals(data.csale);
+};
+
 export const onOrderAdded = async (data: orderType) => {
   const categories = getCategoriesFromOrder(data);
-  for (const food of data.items) await addOrderToFood(food.id);
+  for (const food of data.items) {
+    await addOrderOnFood(food);
+    if (data.csale) {
+      addSaleOnFood(food);
+      console.log(food);
+      addSalesToCategory(food.itemCategory, food.price);
+    }
+  }
   for (const category of categories) {
     await addOrderToCategory(category.id, category.quantity);
   }
@@ -139,112 +470,34 @@ export const onOrderAdded = async (data: orderType) => {
   } else await addOrderToGlobals();
 };
 
-const addOrderToGlobals = async (cSale = false) => {
-  const today = new Date();
-  await admin
-    .firestore()
-    .collection("appGlobals")
-    .doc("orders")
-    .set({
-      //
-      ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      //all orders
-      ordersCount: admin.firestore.FieldValue.increment(1),
-      //month orders all
-      [`orders${today.getMonth() + 1}-${today.getFullYear()}Count`]:
-        admin.firestore.FieldValue.increment(1),
-      //year orders all
-      [`orders-${today.getFullYear()}Count`]:
-        admin.firestore.FieldValue.increment(1),
-      //today orders all
-      [`orders${today.getDate()}-${
-        today.getMonth() + 1
-      }-${today.getFullYear()}Count`]: admin.firestore.FieldValue.increment(1),
-      ...(cSale && {
-        customSalesCount: admin.firestore.FieldValue.increment(1),
-      }),
-      //
-      ...(cSale && {
-        customSalesLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      }),
-      // month custom sales
-      ...(cSale && {
-        [`customSales${today.getMonth() + 1}-${today.getFullYear()}Count`]:
-          admin.firestore.FieldValue.increment(1),
-      }),
-      // year custom sales
-      ...(cSale && {
-        [`customSales${today.getFullYear()}Count`]:
-          admin.firestore.FieldValue.increment(1),
-      }),
-      // today custom sales
-      ...(cSale && {
-        [`customSales${today.getDate()}-${
-          today.getMonth() + 1
-        }-${today.getFullYear()}Count`]:
-          admin.firestore.FieldValue.increment(1),
-      }),
-    });
-};
+export const onUpdateOrder = async (
+  snap: functions.Change<functions.firestore.QueryDocumentSnapshot>
+) => {
+  const order = (await snap.after.data()) as orderType;
+  const categories = getCategoriesFromOrder(order);
+  if (order.completed) {
+    for (const food of order.items) {
+      await addSaleOnFood(food);
+      await addOrderOnFood(food);
+    }
+    for (const category of categories)
+      updateOrderOnCategory(
+        category.id,
+        category.quantity,
+        category.totalSales,
+        false
+      );
 
-const addOrderToFood = async (id: string) => {
-  await admin
-    .firestore()
-    .collection("foods")
-    .doc(id)
-    .update({
-      orders: admin.firestore.FieldValue.increment(1),
-    });
-};
-
-const addOrderFailureToGlobals = async () => {
-  const today = new Date();
-  await admin
-    .firestore()
-    .collection("appGlobals")
-    .doc("orders")
-    .set({
-      ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      // today failed
-      [`orders${today.getDate()}-${
-        today.getMonth() + 1
-      }-${today.getFullYear()}FailedCount`]:
-        admin.firestore.FieldValue.increment(1),
-      // month failed
-      [`orders${today.getMonth() + 1}-${today.getFullYear()}FailedCount`]:
-        admin.firestore.FieldValue.increment(1),
-      // year failed
-      [`orders${today.getFullYear()}FailedCount`]:
-        admin.firestore.FieldValue.increment(1),
-    });
-};
-
-const addOrderCompletedToGlobals = async (price: number) => {
-  const today = new Date();
-  await admin
-    .firestore()
-    .collection("appGlobals")
-    .doc("orders")
-    .set({
-      ordersLastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      //today orders completed
-      [`orders${today.getDate()}-${
-        today.getMonth() + 1
-      }-${today.getFullYear()}CompletedCount`]:
-        admin.firestore.FieldValue.increment(1),
-      //today sales made
-      [`sales${today.getDate()}-${
-        today.getMonth() + 1
-      }-${today.getFullYear()}Made`]:
-        admin.firestore.FieldValue.increment(price),
-      //month sales made
-      [`sales${today.getMonth() + 1}-${today.getFullYear()}Made`]:
-        admin.firestore.FieldValue.increment(price),
-      //year sales made
-      [`sales${today.getFullYear()}Made`]:
-        admin.firestore.FieldValue.increment(price),
-      //month orders completed
-      [`orders${today.getMonth() + 1}-${today.getFullYear()}CompletedCount`]:
-        admin.firestore.FieldValue.increment(1),
-    });
+    await addOrderCompletedToGlobals(order.totalPrice);
+  } else if (order.failed) {
+    for (const food of order.items) await addOrderFailureOnFood(food);
+    for (const category of categories)
+      updateOrderOnCategory(
+        category.id,
+        category.quantity,
+        category.totalSales,
+        true
+      );
+    await addOrderFailureToGlobals();
+  }
 };

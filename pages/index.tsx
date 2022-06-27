@@ -11,12 +11,27 @@ import { useAppDispatch, useAppSelector } from "../features/hooks";
 import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
 import { FoodType } from "../features/types";
 import { auth } from "../libs/Firebase";
+import axios from "../libs/axios";
+import { getFoods, selectFoods } from "../features/foods/foodsSlice";
+import { selectCarts } from "../features/cart/cartSlice";
 
 const Home: NextPage = () => {
   const dispatch = useAppDispatch();
   const { user, completed } = useFirebaseAuth();
   const [scrolled, setScrolled] = useState(false);
-  const [selectedFood, setSelectedFood] = useState<FoodType | null>(null);
+  const carts = useAppSelector(selectCarts);
+  const [selectedFood, setSelectedFood] = useState<{
+    id: string;
+    name: string;
+    available: boolean;
+    price: number;
+    img: string;
+  } | null>(null);
+  const foods = useAppSelector(selectFoods);
+  const [page, setPage] = useState(1);
+  const [lastUpdateComplete, setLastUpdateComplete] = useState(false);
+  const [foodsLastUpdate, setFoodsLastUpdate] = useState(0);
+  const [foodsLoading, setFoodsLoading] = useState(false);
 
   useEffect(() => {
     const handleScrolled = (e: Event) => {
@@ -29,7 +44,29 @@ const Home: NextPage = () => {
       window.removeEventListener("scroll", handleScrolled);
     };
   }, []);
-  console.log(user);
+  console.log("carts =========> ", carts);
+
+  useEffect(() => {
+    (async () => {
+      setFoodsLoading(true);
+      if (lastUpdateComplete) {
+        await dispatch(getFoods({ page, lastUpdate: foodsLastUpdate }));
+        setFoodsLoading(false);
+      }
+    })();
+  }, [lastUpdateComplete, dispatch, page, foodsLastUpdate]);
+
+  useEffect(() => {
+    (async () => {
+      setLastUpdateComplete(false);
+      const res = await axios.get("/users/foodGlobals");
+      const globals: any = res.data;
+      setFoodsLastUpdate(globals?.foodsLastUpdate?.nanoseconds || 0);
+      setLastUpdateComplete(true);
+    })();
+  }, []);
+
+  console.log("foods =========> ", foods);
 
   if (completed) {
     return (
@@ -57,43 +94,18 @@ const Home: NextPage = () => {
             >
               All Food Kinds
             </h2>
-            <div className="flex flex-wrap -m-1 md:-m-2">
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/fried-rice.jfif"
-                name="Fried Rice And Chicken"
-                price={25}
-              />
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/Jollof-and-Chicken.jpg"
-                name="Jollof and Chicken"
-                price={50}
-              />
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/kelewele.jfif"
-                name="Kelewele"
-                price={15}
-              />
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/bread-sandwich.jfif"
-                name="Bread Sandwich"
-                price={12}
-              />
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/abele.jpg"
-                name="Abele Ice Cream"
-                price={5}
-              />
-              <FoodItem
-                setSelectedFood={setSelectedFood}
-                img="/images/pizza.jfif"
-                name="Pizza"
-                price={24}
-              />
+            <div className="sm:px-5 gap-4 grid sm:grid-cols-2 md:grid-cols-3 content-center container lg:max-w-[1512px] md:max-w-[1112px] sm:max-w-[992px] mx-auto">
+              {foods.map((f) => (
+                <FoodItem
+                  key={f.id}
+                  id={f.id}
+                  available={Boolean(f.available)}
+                  setSelectedFood={setSelectedFood}
+                  img={(f.imgURL && f.imgURL.toString()) || ""}
+                  name={f.name}
+                  price={f.price}
+                />
+              ))}
             </div>
           </div>
           {

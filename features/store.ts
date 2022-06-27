@@ -1,8 +1,18 @@
-import { configureStore, ThunkAction, Action, combineReducers } from '@reduxjs/toolkit';
+import {
+  configureStore,
+  ThunkAction,
+  Action,
+  combineReducers,
+} from "@reduxjs/toolkit";
 //import { setupListeners } from '@reduxjs/toolkit/query'
-import { persistStore, persistReducer } from 'redux-persist';
-import storage from 'redux-persist/lib/storage';
-import {authReducer} from "./reducers"
+import { persistStore, persistReducer } from "redux-persist";
+import storage from "redux-persist/lib/storage";
+import {
+  authReducer,
+  cartsReducer,
+  categoriesReducer,
+  foodsReducer,
+} from "./reducers";
 //import baseApi from "./baseApi";
 
 const persistConfig = {
@@ -12,13 +22,16 @@ const persistConfig = {
 };
 
 const rootReducer = combineReducers({
-      //[baseApi.reducerPath]: baseApi.reducer,
-    auth: authReducer
-})
+  //[baseApi.reducerPath]: baseApi.reducer,
+  auth: authReducer,
+  categories: categoriesReducer,
+  foods: foodsReducer,
+  carts: cartsReducer,
+});
 
-const persistedReducer = persistReducer(persistConfig, rootReducer)
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 export const store = configureStore({
-    reducer: persistedReducer,
+  reducer: persistedReducer,
   //middleware: getDefaultMiddleware => getDefaultMiddleware().concat(baseApi.middleware)
 });
 
