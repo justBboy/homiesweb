@@ -7,16 +7,17 @@ import {
 } from "firebase/auth";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import React, { FormEvent, useEffect, useState } from "react";
+import React, { FormEvent, useEffect, useRef, useState } from "react";
 import { AiOutlineLoading, AiOutlineLoading3Quarters } from "react-icons/ai";
 import { BsCheckLg } from "react-icons/bs";
 import CenterModal from "../components/CenterModal";
-import { selectUser, setUser } from "../features/auth/authSlice";
+import { selectRefCode, setUser } from "../features/auth/authSlice";
 import { useAppDispatch, useAppSelector } from "../features/hooks";
 import useRecaptcha from "../features/hooks/useRecaptcha";
 import { validateLoginForm } from "../features/validators";
 import { auth } from "../libs/Firebase";
 import axios from "../libs/axios";
+import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
 
 export type loginFormErrors = {
   phone: string;
@@ -29,21 +30,63 @@ const Login = () => {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const srefCode = useAppSelector(selectRefCode);
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationComplete, setVerificationComplete] = useState(false);
   const [username, setUsername] = useState("");
-  const user = useAppSelector(selectUser);
+  const { user, completed } = useFirebaseAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [validationError, setValidationError] = useState("");
   const [error, setError] = useState("");
-  const recaptchaVerifier = useRecaptcha("recaptcha-div");
+  const { createRecaptcha } = useRecaptcha("recaptcha-div");
+  const [refCode, setRefCode] = useState("");
+  const [recaptchaLoading, setRecaptchaLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] =
     useState<ConfirmationResult>();
   const [form, setForm] = useState<loginForm>({
     phone: "",
     error: null,
   });
+
+  const sendVerification = async (phone: string) => {
+    const recaptcha = createRecaptcha("recaptcha-div");
+    if (recaptcha) {
+      setRecaptchaLoading(true);
+      try {
+        const confirmationResult = await signInWithPhoneNumber(
+          auth,
+          `+233${phone.substring(1)}`,
+          recaptcha
+        );
+        if (confirmationResult) setConfirmationResult(confirmationResult);
+
+        if (recaptchaContainerRef.current) {
+          recaptchaContainerRef.current?.replaceChildren();
+          recaptchaContainerRef.current.innerHTML =
+            "<div id='recaptcha-div'></div>";
+        }
+        setTimeout(() => {
+          createRecaptcha("recaptcha-div");
+        }, 5000);
+        setRecaptchaLoading(false);
+      } catch (err) {
+        console.log(err);
+        setError("There was an error verifiying, please try later");
+        if (recaptchaContainerRef.current) {
+          recaptchaContainerRef.current?.replaceChildren();
+          recaptchaContainerRef.current.innerHTML =
+            "<div id='recaptcha-div'></div>";
+          setTimeout(() => {
+            createRecaptcha("recaptcha-div");
+          }, 5000);
+        }
+        setRecaptchaLoading(false);
+      }
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const errors = validateLoginForm(form);
@@ -53,15 +96,14 @@ const Login = () => {
     }
     setLoading(true);
     const data = { phone: form.phone };
-    if (recaptchaVerifier) {
-      const confirmationResult = await signInWithPhoneNumber(
-        auth,
-        `+233${data.phone.substring(1)}`,
-        recaptchaVerifier
-      );
-      if (confirmationResult) setConfirmationResult(confirmationResult);
+    try {
+      await sendVerification(data.phone);
+      setLoading(false);
+    } catch (err) {
+      console.log(err);
+      setError("There was an error verifiying, please try later");
+      setLoading(false);
     }
-    setLoading(false);
   };
   const handleVerifyCode = async () => {
     setVerificationLoading(true);
@@ -86,13 +128,14 @@ const Login = () => {
           setVerificationLoading(false);
         }, 1000);
       } catch (err) {
-        console.dir(err as any);
+        setVerificationLoading(false);
         if (typeof err === "object") {
           if ((err as any).code === "auth/invalid-verification-code")
             setValidationError("Invalid verification code");
+          if ((err as any).code === "auth/too-many-requests")
+            setValidationError("Too Many Requests, try again later");
           else setValidationError((err as any).toString());
         } else if (typeof err === "string") setValidationError(err);
-        setVerificationLoading(false);
       }
     }
   };
@@ -109,9 +152,13 @@ const Login = () => {
         const res = await axios.post("/auth/registerCustomer", {
           uid: auth.currentUser.uid,
           email,
+          refCode,
           token,
         });
-        if (res.data.error) setError(res.data.error);
+        if (res.data.error) {
+          setLoading(false);
+          return setError(res.data.error);
+        }
         await signInWithCustomToken(auth, res.data.customToken);
       } catch (err) {
         if (typeof err === "object") {
@@ -130,7 +177,6 @@ const Login = () => {
     setLoading(false);
   };
 
-  console.log(user);
   /*
   const handleFacebookLogin = async (e: any) => {
     e.preventDefault();
@@ -152,13 +198,22 @@ const Login = () => {
     }
   };
   */
+
   useEffect(() => {
-    if (user) {
-      const next = router.query["next"]?.toString() || "/";
-      router.push(next);
-    }
+    router.beforePopState(({ as }) => {
+      router.replace("/");
+      return false;
+    });
+    return () => {
+      router.beforePopState(() => true);
+    };
   }, []);
-  console.log(verificationComplete);
+
+  useEffect(() => {
+    if (srefCode) {
+      setRefCode(srefCode);
+    }
+  }, [srefCode]);
   return (
     <div className={`w-screen min-h-screen bg-graybg flex items-center`}>
       {confirmationResult && !user && (
@@ -202,15 +257,28 @@ const Login = () => {
                 className={`w-[70%] sm:w-[60%] mx-auto p-3 outline-orange-600 border border-slate-400 shadow rounded mb-4`}
               />
             </div>
-            <button
-              onClick={handleVerifyCode}
-              disabled={verificationLoading}
-              className={`w-[160px] mt-3 transition-opacity duration-500 ${
-                verificationLoading ? "opacity-60" : "opacity-100"
-              } mx-auto flex items-center justify-center cursor-pointer bg-orange-700 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded`}
-            >
-              Verify
-            </button>
+            <div className={`flex flex-col w-full items-center justify-center`}>
+              <button
+                onClick={handleVerifyCode}
+                disabled={verificationLoading}
+                className={`w-[160px] mt-3 transition-opacity duration-500 ${
+                  verificationLoading ? "opacity-60" : "opacity-100"
+                } flex items-center justify-center cursor-pointer bg-orange-700 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded`}
+              >
+                Verify
+              </button>
+              <button
+                type="button"
+                onClick={() => sendVerification(form.phone)}
+                className={`text-blue-600`}
+              >
+                {recaptchaLoading ? (
+                  <AiOutlineLoading className={`animate-spin`} />
+                ) : (
+                  "Didn't get?"
+                )}
+              </button>
+            </div>
           </div>
         </CenterModal>
       )}
@@ -225,13 +293,14 @@ const Login = () => {
           </Link>
         </div>
         <div className={`flex flex-col items-center h-[80%]`}>
-          <h2 className={`font-gotham mt-5 text-md`}>Dine With Us</h2>
+          <h2 className={`font-gotham mt-5 text-md`}>Food You Love</h2>
           <form
             className={`w-full flex flex-col h-full items-center px-5 pt-2 mt-2`}
           >
             {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
             {(user && !user.username) || (user && !user.email) ? (
               <>
+                <h4 className={`text-xs font-gothamThin`}>Additional Info</h4>
                 <input
                   type="text"
                   placeholder="Your Name"
@@ -246,6 +315,18 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className={`sm:w-[400px] w-[280px] animate__animated animate__shakeX p-2 outline-orange-600 border border-slate-400 shadow rounded mb-4`}
                 />
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Referral Code (Optional)"
+                    value={refCode}
+                    onChange={(e) => setRefCode(e.target.value)}
+                    className={`sm:w-[400px] w-[280px] animate__animated animate__shakeX p-2 outline-orange-600 border border-slate-400 shadow rounded`}
+                  />
+                  <p className={`font-gothamLight text-[10px] mb-4`}>
+                    Referral Code (optional)
+                  </p>
+                </div>
               </>
             ) : (
               <input
@@ -257,7 +338,9 @@ const Login = () => {
               />
             )}
             <div className={`w-[80%] mx-auto`}>
-              <div id="recaptcha-div"></div>
+              <div ref={recaptchaContainerRef}>
+                <div id="recaptcha-div"></div>
+              </div>
               <button
                 onClick={(e) => {
                   if (user) handleUpdateDetails();

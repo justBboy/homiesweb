@@ -9,6 +9,8 @@ import { useRouter } from "next/router";
 import { getIdToken } from "firebase/auth";
 import { auth } from "../libs/Firebase";
 import { validateEmail, validatePhone } from "../features/validators";
+import Image from "next/image";
+import Loader from "../components/Loader";
 
 export type reqFormError = {
   firstName: string | undefined;
@@ -116,8 +118,12 @@ const AgentRequest = () => {
   }, [form.email, form.phoneNumber]);
 
   useEffect(() => {
-    if (completed && (!user || user.agent)) {
-      router.push("/login?next=/agentRequest");
+    if (completed && !user) {
+      setTimeout(() => {
+        router.push("/login");
+      }, 1000);
+    } else if (completed && user?.agent) {
+      router.push("/");
     }
   }, [user, completed]);
   if (completed && user) {
@@ -134,8 +140,14 @@ const AgentRequest = () => {
             <div
               className={`w-full flex md:flex-row flex-col items-center h-full`}
             >
-              <div className={`sm:flex hidden w-1/2 justify-center`}>
-                <img src="/images/pizza-slice.png" alt="Pizza slice image" />
+              <div
+                className={`sm:flex hidden w-1/2 aspect-[0.980/1] justify-center relative`}
+              >
+                <Image
+                  layout="fill"
+                  src="/v1656685002/pizza-slice_jyugt1.png"
+                  alt="Pizza slice image"
+                />
               </div>
               <div
                 className={`relative flex flex-col items-center justify-center h-full w-full md:w-1/2 p-5`}
@@ -317,8 +329,14 @@ const AgentRequest = () => {
   }
 
   return (
-    <div className={`w-screen h-screen flex justify-center items-center`}>
-      <AiOutlineLoading className={`text-2xl animate-spin`} color="black" />
+    <div
+      style={{
+        background:
+          "radial-gradient(circle, rgba(234,88,12,1) 35%, rgba(255,131,0,1) 100%)",
+      }}
+      className={`w-full h-screen flex justify-center items-center`}
+    >
+      <Loader />
     </div>
   );
 };

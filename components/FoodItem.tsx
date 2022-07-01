@@ -1,12 +1,12 @@
 import Image from "next/image";
 import React from "react";
-import { FoodType } from "../features/types";
 
 interface props {
   id: string;
   name: string;
   available: boolean;
   price: number;
+  includes?: string[];
   img: string;
   setSelectedFood: (food: {
     id: string;
@@ -22,6 +22,7 @@ const FoodItem: React.FC<props> = ({
   name,
   price,
   available,
+  includes,
   img,
   setSelectedFood,
 }) => {
@@ -31,11 +32,13 @@ const FoodItem: React.FC<props> = ({
       name: string;
       available: boolean;
       price: number;
+      includes?: string[];
       img: string;
     } = {
       id,
       name,
       available,
+      includes,
       price,
       img,
     };
@@ -44,11 +47,15 @@ const FoodItem: React.FC<props> = ({
   return (
     <div
       onClick={handleSelectFood}
-      className="flex flex-col sm:max-w-[400px] max-w-[280px] aspect-[] w-full cursor-pointer mb-5 mx-auto"
+      data-aos="fade-up"
+      className="flex  flex-col sm:max-w-[400px] max-w-[280px] aspect-[] w-full cursor-pointer mb-5 mx-auto"
     >
       <div className="w-full aspect-[4/3] p-1 md:p-2 relative">
         <Image
           alt="gallery"
+          loader={({ src }) => {
+            return src;
+          }}
           layout="fill"
           className="block object-cover object-center w-full h-full rounded-lg"
           src={img}

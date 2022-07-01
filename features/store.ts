@@ -12,13 +12,14 @@ import {
   cartsReducer,
   categoriesReducer,
   foodsReducer,
+  ordersReducer,
 } from "./reducers";
 //import baseApi from "./baseApi";
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: [],
+  whitelist: ["auth", "foods", "carts", "categories", "orders"],
 };
 
 const rootReducer = combineReducers({
@@ -27,6 +28,7 @@ const rootReducer = combineReducers({
   categories: categoriesReducer,
   foods: foodsReducer,
   carts: cartsReducer,
+  orders: ordersReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

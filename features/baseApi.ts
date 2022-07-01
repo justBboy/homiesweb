@@ -11,5 +11,7 @@ const baseApi = createApi({
 export default baseApi
 */
 
-const BASE_URL = "http://localhost:5001/homiezfoods/us-central1/app";
-export default BASE_URL
+//https://us-central1-homiezfoods.cloudfunctions.net/app
+//http://localhost:5001/homiezfoods/us-central1/app
+const BASE_URL = "https://us-central1-homiezfoods.cloudfunctions.net/app";
+export default BASE_URL;

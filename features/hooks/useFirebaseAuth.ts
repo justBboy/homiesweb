@@ -6,6 +6,7 @@ import { userType } from "../auth/authSlice";
 const useFirebaseAuth = () => {
   const [completed, setCompleted] = useState(false);
   const [user, setUser] = useState<userType | null>(null);
+  const [error, setError] = useState("");
 
   const onStateChanged = async (user: User | null) => {
     if (user) {
@@ -24,6 +25,8 @@ const useFirebaseAuth = () => {
         setCompleted(true);
       } catch (err) {
         console.log("user state changed err ============> ", err);
+        setError("There was an error, please try again");
+        setCompleted(true);
       }
     } else {
       setUser(user);
@@ -40,7 +43,7 @@ const useFirebaseAuth = () => {
     };
   }, []);
 
-  return { user, completed };
+  return { user, completed, error };
 };
 
 export default useFirebaseAuth;

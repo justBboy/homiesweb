@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import useMountTransition from "../features/hooks/useMountTransition";
 
 interface props {
+  orderId: string;
   isMounted?: boolean;
+  items: { foodName: string; quantity: number; foodPrice: number }[];
 }
 
-const PrevOrderItem: React.FC<props> = ({ isMounted }) => {
+const PrevOrderItem: React.FC<props> = ({ isMounted, items, orderId }) => {
   const hasTransitionedIn = useMountTransition(Boolean(isMounted), 180);
   const [slideAnimComplete, setSlideAnimComplete] = useState(false);
 
@@ -23,8 +25,6 @@ const PrevOrderItem: React.FC<props> = ({ isMounted }) => {
     };
   }, [hasTransitionedIn]);
 
-  console.log(slideAnimComplete);
-
   return (
     <>
       {(hasTransitionedIn || isMounted) && (
@@ -38,35 +38,28 @@ const PrevOrderItem: React.FC<props> = ({ isMounted }) => {
           }`}
         >
           <div className={`flex flex-col items-center p-2 sm:p-5 w-full`}>
-            <div
-              className={`flex shadow-sm w-full justify-between items-center py-5 px-3`}
-            >
-              <h4 className={`font-gotham text-slate-800 `}>
-                Banku and okro stew
-              </h4>
-              <h5 className={`font-gothamMedium text-slate-700`}>Ghs20</h5>
-            </div>
-            <div
-              className={`flex shadow-sm w-full justify-between items-center py-5 px-3`}
-            >
-              <h4 className={`font-gotham text-slate-800 `}>
-                Pizza, King Size
-              </h4>
-              <h5 className={`font-gothamMedium text-slate-700`}>Ghs24</h5>
-            </div>
-            <div
-              className={`flex shadow-sm w-full justify-between items-center py-5 px-3`}
-            >
-              <h4 className={`font-gotham text-slate-800 `}>
-                Jollof Rice and Chicken
-              </h4>
-              <h5 className={`font-gothamMedium text-slate-700`}>Ghs40</h5>
-            </div>
-            <div
-              className={`flex shadow-sm w-full justify-between items-center py-5 px-3`}
-            >
-              <h4 className={`font-gotham text-slate-800 `}>Fruit Mix</h4>
-              <h5 className={`font-gothamMedium text-slate-700`}>Ghs15</h5>
+            {items.map((i, indx) => (
+              <div
+                key={indx}
+                className={`flex shadow-sm w-full justify-between items-center py-5 px-3`}
+              >
+                <h4 className={`font-gotham text-slate-800 `}>{i.foodName}</h4>
+                <h5 className={`font-gothamMedium text-slate-700`}>
+                  ₵{i.foodPrice}
+                  {i.quantity > 1 && (
+                    <span className={`font-sm text-light font-gothamLight`}>
+                      -{i.quantity}x
+                    </span>
+                  )}
+                </h5>
+              </div>
+            ))}
+            <div className={`w-full flex mt-4`}>
+              <span
+                className={`font-gothamLight text-xs text-center sm:text-right whitespace-nowrap`}
+              >
+                {orderId}
+              </span>
             </div>
           </div>
         </div>

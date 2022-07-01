@@ -26,12 +26,11 @@ export const getFoodCategories = createAsyncThunk(
   ) => {
     const state = thunkAPI.getState() as RootState;
     const sLastUpdate = state.categories.lastUpdateCategories;
-    console.log("updated =========> ", lastUpdate > sLastUpdate);
     if (
-      sLastUpdate < lastUpdate ||
       lastUpdate === 0 ||
       !lastUpdate ||
-      !sLastUpdate
+      !sLastUpdate ||
+      sLastUpdate < lastUpdate
     ) {
       const res = await getFoodCategoriesApi(page, lastUpdate);
       return res;

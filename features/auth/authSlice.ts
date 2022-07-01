@@ -19,10 +19,12 @@ export type userType = {
 
 interface state {
   user: userType | null;
+  refCode: string;
 }
 
 const initialState: state = {
   user: null,
+  refCode: "",
 };
 
 type userLoginData = {
@@ -70,11 +72,15 @@ const slice = createSlice({
     setUser: (state, action: PayloadAction<userType | null>) => {
       state.user = action.payload;
     },
+    setRefCode: (state, action: PayloadAction<string>) => {
+      state.refCode = action.payload;
+    },
   },
 });
 
-export const { setUser } = slice.actions;
+export const { setUser, setRefCode } = slice.actions;
 
 export const selectUser = (state: RootState) => state.auth.user;
+export const selectRefCode = (state: RootState) => state.auth.refCode;
 
 export default slice.reducer;

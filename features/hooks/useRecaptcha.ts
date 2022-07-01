@@ -4,11 +4,25 @@ import { auth } from "../../libs/Firebase";
 
 const useRecaptcha = (recaptchaClass: string) => {
   const [recaptcha, setRecaptcha] = useState<RecaptchaVerifier>();
+  const createRecaptcha = (recaptchaClass: string) => {
+    const recaptchaVerifier = new RecaptchaVerifier(
+      recaptchaClass,
+      {
+        size: "invisible",
+        callback: (response: any) => {
+          console.log(response);
+          //
+        },
+      },
+      auth
+    );
+    return recaptchaVerifier;
+  };
   useEffect(() => {
-    const recaptchaVerifier = new RecaptchaVerifier(recaptchaClass, {}, auth);
+    const recaptchaVerifier = createRecaptcha(recaptchaClass);
     setRecaptcha(recaptchaVerifier);
   }, []);
-  return recaptcha;
+  return { recaptcha, createRecaptcha };
 };
 
 export default useRecaptcha;

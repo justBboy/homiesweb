@@ -5,12 +5,11 @@ import {
   signInWithRedirect,
   User,
 } from "firebase/auth";
-import axios from "../../libs/axios";
+
 import { auth } from "../../libs/Firebase";
 export const loginUserApi = async (email: string, password: string) => {
   try {
   } catch (err) {
-    console.log("login ============> ", err);
     throw err;
   }
 };

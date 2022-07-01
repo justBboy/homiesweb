@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { setCartItemQuantity } from "../features/cart/cartSlice";
+import { MdDelete } from "react-icons/md";
+import {
+  removeFromCart,
+  setCartItemQuantity,
+} from "../features/cart/cartSlice";
 import { useAppDispatch } from "../features/hooks";
 
 interface props {
@@ -18,7 +22,15 @@ const FoodCart: React.FC<props> = ({ name, price, img, quantity, id }) => {
     if (number > 0) dispatch(setCartItemQuantity({ id, quantity: number }));
   }, [number]);
   return (
-    <div className={`w-full rounded shadow h-[80px] mt-5 mb-4 flex`}>
+    <div className={`w-full rounded shadow h-[80px] mt-5 mb-4 flex relative`}>
+      <button
+        onClick={() => {
+          dispatch(removeFromCart(id));
+        }}
+        className={`absolute right-1 top-0`}
+      >
+        <MdDelete className={`text-xl text-slate-600 hover:text-slate-700`} />
+      </button>
       <div className={`w-1/3`}>
         <img className={"h-full"} src={img} alt={name} />
       </div>

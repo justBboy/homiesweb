@@ -12,14 +12,18 @@ import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
 import { FoodType } from "../features/types";
 import { auth } from "../libs/Firebase";
 import axios from "../libs/axios";
-import { getFoods, selectFoods } from "../features/foods/foodsSlice";
-import { selectCarts } from "../features/cart/cartSlice";
+import {
+  foodType,
+  getFoods,
+  selectFoodsWithCategory,
+} from "../features/foods/foodsSlice";
+import { selectCategories } from "../features/categories/categoriesSlice";
+import Loader from "../components/Loader";
 
 const Home: NextPage = () => {
   const dispatch = useAppDispatch();
   const { user, completed } = useFirebaseAuth();
   const [scrolled, setScrolled] = useState(false);
-  const carts = useAppSelector(selectCarts);
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
     name: string;
@@ -27,11 +31,22 @@ const Home: NextPage = () => {
     price: number;
     img: string;
   } | null>(null);
-  const foods = useAppSelector(selectFoods);
-  const [page, setPage] = useState(1);
   const [lastUpdateComplete, setLastUpdateComplete] = useState(false);
   const [foodsLastUpdate, setFoodsLastUpdate] = useState(0);
   const [foodsLoading, setFoodsLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [changeCategoryLoading, setChangeCategoryLoading] = useState(false);
+  const [categoryActive, setCategoryActive] = useState("");
+  const [search, setSearch] = useState("");
+  const foods = useAppSelector(selectFoodsWithCategory(categoryActive));
+  const [scrollBottom, setScrollBottom] = useState(0);
+  const categories = useAppSelector(selectCategories);
+  const [error, setError] = useState("");
+  const [searchFoods, setSearchFoods] = useState<foodType[]>([]);
+  const [searchTimer, setSearchTimer] = useState<{ timer: any; last: number }>({
+    timer: undefined,
+    last: 0,
+  });
 
   useEffect(() => {
     const handleScrolled = (e: Event) => {
@@ -44,29 +59,93 @@ const Home: NextPage = () => {
       window.removeEventListener("scroll", handleScrolled);
     };
   }, []);
-  console.log("carts =========> ", carts);
 
   useEffect(() => {
     (async () => {
-      setFoodsLoading(true);
+      setChangeCategoryLoading(true);
       if (lastUpdateComplete) {
-        await dispatch(getFoods({ page, lastUpdate: foodsLastUpdate }));
-        setFoodsLoading(false);
+        await dispatch(
+          getFoods({
+            page,
+            lastUpdate: foodsLastUpdate,
+            category: categoryActive,
+          })
+        );
       }
+      setChangeCategoryLoading(false);
     })();
-  }, [lastUpdateComplete, dispatch, page, foodsLastUpdate]);
+  }, [lastUpdateComplete, dispatch, page, foodsLastUpdate, categoryActive]);
+
+  useEffect(() => {
+    if (search) {
+      (async () => {
+        if (setFoodsLoading) setFoodsLoading(true);
+        if (Date.now() - searchTimer.last < 3 * 1000) {
+          if (searchTimer.timer) clearTimeout(searchTimer.timer);
+        }
+        let timer = setTimeout(async () => {
+          const searchRes = await axios.get(
+            `/users/searchFood?s=${search}&page=${page}`
+          );
+          if (setFoodsLoading) setFoodsLoading(false);
+          if (searchRes.data.error) return setError(searchRes.data.error);
+          setSearchFoods(searchRes.data);
+        }, 1000);
+        setSearchTimer({
+          last: Date.now(),
+          timer: timer,
+        });
+      })();
+    } else {
+      setSearchFoods([]);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    if (
+      scrollBottom === 0 ||
+      scrollBottom <
+        (document.querySelector("html") as HTMLElement).scrollHeight
+    )
+      return;
+
+    if (foodsLoading) return;
+    (async () => {
+      setFoodsLoading(true);
+      await dispatch(
+        getFoods({
+          page,
+          lastUpdate: foodsLastUpdate,
+          category: categoryActive,
+        })
+      );
+      setFoodsLoading(false);
+    })();
+  }, [scrollBottom]);
 
   useEffect(() => {
     (async () => {
       setLastUpdateComplete(false);
       const res = await axios.get("/users/foodGlobals");
       const globals: any = res.data;
-      setFoodsLastUpdate(globals?.foodsLastUpdate?.nanoseconds || 0);
+      setFoodsLastUpdate(globals?.foodsLastUpdate);
       setLastUpdateComplete(true);
     })();
   }, []);
 
-  console.log("foods =========> ", foods);
+  useEffect(() => {
+    window.addEventListener("scroll", changeScrollBottom);
+    return () => {
+      window.removeEventListener("scroll", changeScrollBottom);
+    };
+  }, []);
+
+  const changeScrollBottom = () => {
+    setScrollBottom(
+      (document.querySelector("html") as HTMLElement).scrollTop +
+        (document.querySelector("html") as HTMLElement).clientHeight || 0
+    );
+  };
 
   if (completed) {
     return (
@@ -80,34 +159,85 @@ const Home: NextPage = () => {
             scrolled ? "max-h-[38vh]" : "max-h-[54vh]"
           } duration-1000 overflow-hidden`}
         >
-          <Header scrolled={scrolled} />
-          <Categories scrolled={scrolled} />
+          <Header
+            foodsLoading={foodsLoading}
+            setFoodsLoading={setFoodsLoading}
+            scrolled={scrolled}
+            search={search}
+            setSearch={setSearch}
+          />
+          <Categories
+            changeCategoryLoading={changeCategoryLoading}
+            setChangeCategoryLoading={setChangeCategoryLoading}
+            active={categoryActive}
+            setActive={setCategoryActive}
+            scrolled={scrolled}
+          />
         </div>
         <section
           className={`overflow-hidden relative text-gray-700 transition-all duration-1000 foods-list ${
             scrolled ? "mt-[38vh]" : "mt-[54vh]"
           }`}
         >
-          <div className={`container px-5 py-2 mx-auto lg:pt-12 lg:px-32`}>
-            <h2
-              className={`text-xl text-center mb-4 font-bold font-gothamThin`}
-            >
-              All Food Kinds
-            </h2>
-            <div className="sm:px-5 gap-4 grid sm:grid-cols-2 md:grid-cols-3 content-center container lg:max-w-[1512px] md:max-w-[1112px] sm:max-w-[992px] mx-auto">
-              {foods.map((f) => (
-                <FoodItem
-                  key={f.id}
-                  id={f.id}
-                  available={Boolean(f.available)}
-                  setSelectedFood={setSelectedFood}
-                  img={(f.imgURL && f.imgURL.toString()) || ""}
-                  name={f.name}
-                  price={f.price}
-                />
-              ))}
+          {changeCategoryLoading ? (
+            <div className={`w-full flex justify-center mt-10`}>
+              <Loader />
             </div>
-          </div>
+          ) : (
+            <div className={`container px-5 py-2 mx-auto lg:pt-12 lg:px-32`}>
+              {!categoryActive ? (
+                <h2
+                  className={`animate__animated animate__fadeIn text-xl text-center mb-4 font-bold font-gothamThin`}
+                >
+                  {!search ? "All Food Kinds" : search}
+                </h2>
+              ) : (
+                <h2
+                  className={`animate__animated animate__fadeIn text-xl text-center mb-4 font-bold font-gothamThin`}
+                >
+                  {categories.find((c) => c.id === foods.categoryId)?.name ||
+                    "All"}
+                </h2>
+              )}
+              <div className="sm:px-5 gap-4 grid sm:grid-cols-2 md:grid-cols-3 container lg:max-w-[1512px] md:max-w-[1112px] sm:max-w-[992px] mx-auto pb-5">
+                {!!searchFoods.length &&
+                  searchFoods?.map((f) => (
+                    <FoodItem
+                      key={f.id}
+                      id={f.id}
+                      includes={f.includes}
+                      available={Boolean(f.available)}
+                      setSelectedFood={setSelectedFood}
+                      img={(f.imgURL && f.imgURL.toString()) || ""}
+                      name={f.name}
+                      price={f.price}
+                    />
+                  ))}
+                {!search &&
+                  !searchFoods.length &&
+                  foods?.items?.map((f) =>
+                    f ? (
+                      <FoodItem
+                        key={f.id}
+                        id={f.id}
+                        includes={f.includes}
+                        available={Boolean(f.available)}
+                        setSelectedFood={setSelectedFood}
+                        img={(f.imgURL && f.imgURL.toString()) || ""}
+                        name={f.name}
+                        price={f.price}
+                      />
+                    ) : null
+                  )}
+              </div>
+              {foodsLoading && (
+                <div className={`w-full flex justify-center mt-10`}>
+                  <Loader />
+                </div>
+              )}
+            </div>
+          )}
+
           {
             <BottomModal
               show={Boolean(selectedFood)}
@@ -126,7 +256,7 @@ const Home: NextPage = () => {
   }
   return (
     <div className={`w-full h-screen flex justify-center items-center`}>
-      <AiOutlineLoading className="text-2xl animate-spin" color="#111" />
+      <Loader />
     </div>
   );
 };

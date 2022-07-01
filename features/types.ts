@@ -18,3 +18,8 @@ export type categoryType = {
   imgURL: string;
   name: string;
 };
+
+enum paymentMethods {
+  manual = 1,
+  electronic,
+}

@@ -7,9 +7,9 @@ import {
   AiOutlineClose,
   AiOutlineInbox,
   AiOutlineShareAlt,
-  AiOutlineCheckCircle,
+  AiOutlineUser,
 } from "react-icons/ai";
-import { MdOutlineAccountCircle } from "react-icons/md";
+import { MdOutlineAccountCircle, MdOutlineVerifiedUser } from "react-icons/md";
 import { RiAccountBoxLine } from "react-icons/ri";
 import foodChoiceAnimation from "../animations/food-choice.json";
 import vegetableAnim from "../animations/clean-vegetable.json";
@@ -21,25 +21,44 @@ import { signOut } from "firebase/auth";
 import ConfirmModal from "./ConfirmModal";
 import { GoPrimitiveDot } from "react-icons/go";
 import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
-import { useAppSelector } from "../features/hooks";
+import { useAppDispatch, useAppSelector } from "../features/hooks";
 import { selectCategories } from "../features/categories/categoriesSlice";
 import { collection, doc, getDoc } from "firebase/firestore";
-import { selectCarts } from "../features/cart/cartSlice";
+import { clearCart, selectCarts } from "../features/cart/cartSlice";
+import { FaRegUser } from "react-icons/fa";
+import { useRouter } from "next/router";
+import { setRefCode } from "../features/auth/authSlice";
+import axios from "../libs/axios";
 
 interface props {
   scrolled?: boolean;
   withoutSearch?: boolean;
   children?: ReactElement;
+  foodsLoading?: boolean;
+  search?: string;
+  setSearch?: (val: string) => void;
+  setFoodsLoading?: (b: boolean) => void;
 }
 
-const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
+const Header: React.FC<props> = ({
+  scrolled,
+  withoutSearch,
+  children,
+  foodsLoading,
+  search,
+  setSearch,
+  setFoodsLoading,
+}) => {
+  const router = useRouter();
   const accountContainerRef = useRef<HTMLDivElement>(null);
+  const dispatch = useAppDispatch();
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const cart = useAppSelector(selectCarts);
   const [cartTotalAmount, setCartTotalAmount] = useState(0);
   const { user, completed } = useFirebaseAuth();
-  const [search, setSearch] = useState("");
+
+  const { rc } = router.query;
 
   const [showMenu, setShowMenu] = useState(false);
   const [accountClicked, setAccountClicked] = useState(false);
@@ -75,6 +94,12 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
   }, [scrolled]);
 
   useEffect(() => {
+    if (rc) {
+      dispatch(setRefCode(rc.toString()));
+    }
+  }, [router]);
+
+  useEffect(() => {
     const totalAmount = cart.reduce((p, c, indx) => {
       return p + c.price * c.quantity;
     }, 0);
@@ -87,7 +112,6 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
         accountContainerRef.current &&
         !accountContainerRef.current.contains(e.target)
       ) {
-        console.log("clicked outside");
         setAccountClicked(false);
       }
     };
@@ -137,12 +161,13 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
                 }}
                 className="mr-5 cursor-pointer"
               >
-                <div className={`flex items-center`}>
-                  <MdOutlineAccountCircle
-                    className={`text-slate-100 text-md sm:text-xl mr-1`}
-                  />
+                <div
+                  className={`flex flex-col justify-center items-center`}
+                  title="Your Account"
+                >
+                  <AiOutlineUser className={`text-slate-100 text-3xl mr-1`} />
                   <h6
-                    className={`flex items-center font-gothamLight font-xs sm:font-md text-xs sm:text-md text-white mr-1`}
+                    className={`flex items-center font-gothamLight font-xs text-[8px] sm:text-md text-white mr-1`}
                   >
                     <span className="mr-1">Account</span>
                     {user && <GoPrimitiveDot color="#4f3" />}
@@ -223,12 +248,14 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
             {!user?.admin && !user?.superadmin && !user?.agent && (
               <Link href="/agentRequest">
                 <a className="mr-2 sm:mr-5">
-                  <div className={`flex items-center overflow-hidden`}>
-                    <BiUserCheck
-                      className={`text-slate-100 text-md sm:text-2xl mr-1`}
+                  <div
+                    className={`flex justify-center flex-col items-center overflow-hidden`}
+                  >
+                    <MdOutlineVerifiedUser
+                      className={`agent-icon text-slate-100 text-3xl font-sm mr-1 text-white`}
                     />
                     <h6
-                      className={`font-gothamLight transition-width duration-1000 font-xs sm:font-md text-xs sm:text-md font-md text-white mr-1`}
+                      className={`font-gothamLight text-[8px] transition-width duration-1000 font-xs font-md text-white`}
                     >
                       Become An Agent
                     </h6>
@@ -268,16 +295,16 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
           scrolled ? "visible opacity-1 scale-1" : "invisible opacity-0 scale-0"
         } p-0 w-12 h-12 bg-red-600 rounded-full hover:bg-red-700 active:shadow-lg mouse shadow transition-all ease-out duration-1000 focus:outline-none`}
       >
-        {!!cart.length && (
-          <div className="relative">
-            <BiCart className={`text-3xl text-white`} />
+        <div className="relative">
+          <BiCart className={`text-3xl text-white`} />
+          {!!cart.length && (
             <div
               className={`absolute top-[-5px] right-[-5px] w-[18px] h-[18px] text-center rounded-[50%] bg-[#eee] text-xs flex justify-center items-center text-slate-800`}
             >
               <span className={``}>{cart.length}</span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </button>
       {children}
       <RightModal
@@ -312,17 +339,30 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
               );
             })}
           </div>
-          <div className={`w-full flex flex-col items-end`}>
-            <h2 className="ml-auto text-sm font-gotham">
-              Total: ₵{cartTotalAmount}
-            </h2>
+          <div className={`w-full flex-1 `}>
+            <div className={`w-full flex flex-col items-end`}>
+              <h2 className="ml-auto text-sm font-gotham">
+                Total: ₵{cartTotalAmount}
+              </h2>
+            </div>
+            <div className={`w-full flex items-center flex-between`}>
+              <a
+                href="#"
+                onClick={() => {
+                  dispatch(clearCart());
+                }}
+                className={`text-slate-600 hover:text-slate-700 tracking-widest text-md p-2`}
+              >
+                Clear All
+              </a>
+              <Link href="/checkout">
+                <a className="w-[160px] ml-auto flex items-center cursor-pointer bg-orange-700 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+                  <AiOutlineShoppingCart className="mr-1 text-2xl text-white" />
+                  <span>Checkout</span>
+                </a>
+              </Link>
+            </div>
           </div>
-          <Link href="/checkout">
-            <a className="w-[160px] ml-auto flex items-center cursor-pointer bg-orange-700 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
-              <AiOutlineShoppingCart className="mr-1 text-2xl text-white" />
-              <span>Checkout</span>
-            </a>
-          </Link>
         </div>
       </RightModal>
       {!withoutSearch && (
@@ -347,13 +387,16 @@ const Header: React.FC<props> = ({ scrolled, withoutSearch, children }) => {
             <BiSearchAlt2
               className={`text-2xl absolute text-slate-400 top-[50%] left-2 translate-y-[-50%]`}
             />
-            <input
-              type="text"
-              className={`w-full h-[45px] border border-slate-400 rounded-md outline-secondary pl-8 pr-20`}
-              placeholder="Search your preferred food"
-              onChange={(e) => setSearch(e.target.value)}
-              value={search}
-            />
+            {search != undefined && setSearch != undefined && (
+              <input
+                type="text"
+                className={`w-full h-[45px] border border-slate-400 rounded-md outline-secondary pl-8 pr-20`}
+                placeholder="Search your preferred food"
+                onChange={(e) => setSearch(e.target.value)}
+                value={search}
+              />
+            )}
+
             <div className={`absolute top-0 right-5 w-10`}>{View}</div>
           </div>
         </div>
