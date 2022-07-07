@@ -16,6 +16,9 @@ import { useAlert } from "react-alert";
 import { auth } from "../libs/Firebase";
 import { getIdToken, User } from "firebase/auth";
 import { AiOutlineLoading } from "react-icons/ai";
+import { IoAlertCircleOutline } from "react-icons/io5";
+import moment from "moment";
+import Head from "next/head";
 
 const Orders = () => {
   const alert = useAlert();
@@ -27,7 +30,7 @@ const Orders = () => {
   const [ordersLastUpdate, setOrdersLastUpdate] = useState<number>(0);
   const [selectedOrder, setSelectedOrder] = useState("");
   const { user, completed } = useFirebaseAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [searchOrders, setSearchOrders] = useState<orderType[]>([]);
@@ -93,19 +96,15 @@ const Orders = () => {
       <div
         className={`min-h-screen w-screen animate__animated animate__fadeIn`}
       >
+        <Head>
+          <title>Homiezfoods - My Orders</title>
+        </Head>
         <Header withoutSearch />
         <div className={`sm:w-[80%] w-[95%] mt-5 mx-auto`}>
           <div
             className={`flex flex-col sm:flex-row items-center w-full mx-auto mb-5`}
           >
-            <div className="w-[100%] sm:w-[40%] mb-2 sm:mb-0 mr-2">
-              <input
-                type="date"
-                className={`p-4 pl-10 w-full text-sm text-gray-900 bg-gray-50 outline-slate-200 rounded-lg border border-slate-300`}
-                placeholder="Choose Date"
-              />
-            </div>
-            <form className={`sm:w-[60%] w-[100%]`}>
+            <form className={`sm:w-[60%] w-[100%] mx-auto`}>
               <label
                 htmlFor="searchOrder"
                 className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-gray-300"
@@ -154,24 +153,38 @@ const Orders = () => {
               </div>
             </form>
           </div>
-          <div className={`flex justify-evenly w-full items-center p-5`}>
-            <div className={`w-1/3 `}>
-              <h6 className="font-gotham font-bold text-center">Order Id</h6>
+          {!!orders.length ? (
+            <div className={`flex justify-evenly w-full items-center p-5`}>
+              <div className={`w-1/3 `}>
+                <h6 className="font-gotham font-bold text-center">
+                  Order Time
+                </h6>
+              </div>
+              <div className={`w-1/3`}>
+                <h6 className="font-gotham font-bold text-center">
+                  Order Id...
+                </h6>
+              </div>
+              <div className={`w-1/3`}>
+                <h6 className="font-gotham font-bold text-center">Total</h6>
+              </div>
             </div>
-            <div className={`w-1/3`}>
-              <h6 className="font-gotham font-bold text-center">Price</h6>
+          ) : (
+            <div
+              className={`w-full justify-center items-center mt-8 flex flex-col`}
+            >
+              <IoAlertCircleOutline className={`text-[200px] text-slate-600`} />
+              <h2 className={`text-xl text-slate-600`}>No Orders Made</h2>
             </div>
-            <div className={`w-1/3`}>
-              <h6 className="font-gotham font-bold text-center">Items Count</h6>
-            </div>
-          </div>
+          )}
+
           {searchOrders.map((order) => (
             <div
               key={order.id}
               onClick={() => {
                 handleSelectOrder(order.id);
               }}
-              className={`relative transition-all duration-1000 w-full bg-slate-200 p-5 hover:bg-slate-300 cursor-pointer mb-5 overflow-hidden`}
+              className={`relative border border-slate-200 transition-all duration-1000 bg-none mx-5 px-1 py-5 hover:bg-slate-300 cursor-pointer mb-5 overflow-hidden rounded`}
             >
               <div
                 style={{
@@ -186,6 +199,11 @@ const Orders = () => {
               <div className={`w-full flex justify-evenly items-center`}>
                 <div className={`w-1/3 `}>
                   <h6 className="font-md text-center">
+                    {moment.unix(order.createdAt.seconds).format("llll")}
+                  </h6>
+                </div>
+                <div className={`w-1/3`}>
+                  <h6 className="font-md text-center">
                     {order.id.substring(0, 8)}...
                   </h6>
                 </div>
@@ -197,17 +215,16 @@ const Orders = () => {
                       : order.totalPrice + 0.2}
                   </h6>
                 </div>
-                <div className={`w-1/3`}>
-                  <h6 className="font-md text-center">{order.items.length}</h6>
-                </div>
               </div>
               <PrevOrderItem
                 orderId={order.id}
+                order={order}
                 items={order.items.map((item) => ({
                   foodName: item.foodName,
                   foodPrice: item.price,
                   quantity: item.quantity,
                 }))}
+                createdAt={order.createdAt.seconds}
                 isMounted={selectedOrder === order.id}
               />
               {selectedOrder ? (
@@ -217,14 +234,14 @@ const Orders = () => {
               )}
             </div>
           ))}
-          {!search &&
+          {!searchOrders.length &&
             orders.map((order) => (
               <div
                 key={order.id}
                 onClick={() => {
                   handleSelectOrder(order.id);
                 }}
-                className={`relative transition-all duration-1000 w-full bg-slate-200 p-5 hover:bg-slate-300 cursor-pointer mb-5 overflow-hidden`}
+                className={`relative transition-all duration-1000 w-full border border-slate-200 rounded-md py-2 sm:py-5 px-5 hover:bg-slate-50 cursor-pointer mb-5 overflow-hidden`}
               >
                 <div
                   style={{
@@ -236,28 +253,39 @@ const Orders = () => {
                   }}
                   className={`w-2 h-full absolute left-1 top-0`}
                 ></div>
-                <div className={`w-full flex justify-evenly items-center`}>
-                  <div className={`w-1/3 `}>
+                <div
+                  className={`w-full flex justify-evenly items-center relative`}
+                >
+                  <div className={`w-1/3`}>
+                    <h6 className="font-md text-center">
+                      {moment.unix(order.createdAt.seconds).format("llll")}
+                    </h6>
+                  </div>
+                  <div className={`w-1/3`}>
                     <h6 className="font-md text-center">
                       {order.id.substring(0, 8)}...
                     </h6>
                   </div>
-                  <div className={`w-1/3`}>
+                  <div className={`w-1/3 relative`}>
                     <h6 className="font-md text-center">
-                      ₵
                       {order.hasRefCode
                         ? order.totalPrice + 1 + 0.2
                         : order.totalPrice + 0.2}
+                      ₵
                     </h6>
-                  </div>
-                  <div className={`w-1/3`}>
-                    <h6 className="font-md text-center">
-                      {order.items.length}
-                    </h6>
+                    {selectedOrder ? (
+                      <BsFillCaretUpFill
+                        className={`absolute right-5 top-[50%] translate-y-[-50%]`}
+                      />
+                    ) : (
+                      <BsFillCaretDownFill className="absolute right-5 top-[50%] translate-y-[-50%]" />
+                    )}
                   </div>
                 </div>
                 <PrevOrderItem
                   orderId={order.id}
+                  order={order}
+                  createdAt={order.createdAt.seconds}
                   items={order.items.map((item) => ({
                     foodName: item.foodName,
                     foodPrice: item.price,
@@ -265,13 +293,6 @@ const Orders = () => {
                   }))}
                   isMounted={selectedOrder === order.id}
                 />
-                {selectedOrder ? (
-                  <BsFillCaretUpFill
-                    className={`absolute right-5 top-[28px]`}
-                  />
-                ) : (
-                  <BsFillCaretDownFill className="absolute right-5 top-[28px]" />
-                )}
               </div>
             ))}
         </div>

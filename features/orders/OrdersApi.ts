@@ -56,15 +56,24 @@ export const getOrdersApi = async (
   }
 };
 
-export const placeOrderManualApi = async (
-  foods: { id: string; quantity: number }[]
-) => {
+export const placeOrderManualApi = async (data: {
+  foods: { id: string; quantity: number }[];
+  locationStreet: string;
+  locationLngLat: {
+    longitude: number;
+    latitude: number;
+  };
+}) => {
   try {
     if (auth.currentUser) {
       const token = await getIdToken(auth.currentUser);
       const res = await axios.post("/users/orderAndPayManually", {
         token,
-        foods,
+        foods: data.foods,
+        location: {
+          locationStreet: data.locationStreet,
+          locationLngLat: data.locationLngLat,
+        },
       });
       if (res.data.error) throw res.data.error;
       return res.data;

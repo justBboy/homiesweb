@@ -1,9 +1,11 @@
-export const baseURL = "http://localhost:3000";
 export const appGlobalId = "global";
 export const phoneNumberPattern = /^[0]?\d{9}$/;
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { orderType } from "./types";
+import fetch from "cross-fetch";
+import Expo, { ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
+import expo from "../config/expo";
 
 export const updateOrderOnDocs = () => {};
 
@@ -15,8 +17,106 @@ export const getNameInitials = (name: string) => {
   const splt = name.split(" ");
   console.log(splt);
   return splt.length > 1
-    ? `${splt[0][0]}${splt[splt.length - 1][0]}`
+    ? `${splt[0][0]}${splt[splt.length - 1][0] || splt[0][1]}`
     : `${splt[0][0]}${splt[0][1]}`;
+};
+
+export const getDistanceFromUs = async (location: string) => {
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${"sunyani fiapre"}&destinations=${encodeURIComponent(
+      location
+    )}&units=metric&key=${process.env.GOOGLE_API_KEY}`
+  );
+  const data = await res.json();
+  if (data.rows) {
+    return {
+      distance: (data.rows[0]?.elements[0] as any)?.distance || 0,
+      duration: (data.rows[0]?.elements[0] as any)?.duration || 0,
+    };
+  }
+  return null;
+};
+
+export const generateOrderId = async (uid: string) => {
+  const umatches = await admin
+    .firestore()
+    .collection("users")
+    .where("uid", "==", uid)
+    .get();
+  if (umatches.empty) throw "User Not Available";
+  const user = umatches.docs[0].data();
+  const getId = () => {
+    let randomInts4 = "";
+    for (let i = 0; i < 4; i++) {
+      randomInts4 += generateRandomNumber().toString();
+    }
+    let id = getNameInitials(user.username) + randomInts4;
+    return id;
+  };
+  let id = getId();
+  let tRes = await admin
+    .firestore()
+    .collection("orders")
+    .where("id", "==", id)
+    .get();
+  while (!tRes.empty) {
+    id = getId();
+    tRes = await admin
+      .firestore()
+      .collection("orders")
+      .where("id", "==", id)
+      .get();
+  }
+  return id;
+};
+
+export const customSendPushNotification = async (
+  uid: string,
+  message: string,
+  title: string,
+  data: any | undefined = undefined
+) => {
+  try {
+    const tokenRes = await admin
+      .firestore()
+      .collection("expoTokens")
+      .where("uid", "==", uid)
+      .get();
+    if (!tokenRes.empty) {
+      let messages: ExpoPushMessage[] = [];
+      const pushTokens: string[] = [];
+      let tickets: ExpoPushTicket[] = [];
+
+      for (const tokenItem of tokenRes.docs) {
+        const data = tokenItem.data() as any;
+        if (Expo.isExpoPushToken(data.token)) {
+          pushTokens.push(data.token);
+        }
+      }
+
+      for (const token of pushTokens) {
+        messages.push({
+          to: token,
+          body: `${message}`,
+          title: title,
+          sound: "default",
+          ...(data && { data }),
+        });
+      }
+
+      const chunks = expo.chunkPushNotifications(messages);
+      for (let chunk of chunks) {
+        try {
+          let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          tickets.push(...ticketChunk);
+        } catch (err) {
+          console.log("error sending push notification => ", err);
+        }
+      }
+    }
+  } catch (err) {
+    console.log(err);
+  }
 };
 
 const addOrderOnFood = async (food: {
@@ -231,66 +331,40 @@ const addOrderFailureOnFood = async (food: {
   }
 };
 
-const updateOrderOnCategory = async (
+const updateOrderFailedOnCategory = async (
   categoryId: string,
   quantity: number,
-  sales: number,
-  failed: boolean = false
+  sales: number
 ) => {
   try {
     const today = new Date();
-    if (failed) {
-      const doc = await admin
-        .firestore()
-        .collection("foodCategories")
-        .doc(categoryId)
-        .get();
-      if (doc.exists)
-        doc.ref.set(
-          {
-            failedOrders: admin.firestore.FieldValue.increment(quantity),
-            [`failed${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(1),
-            [`failed${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(1),
-            //month
-            [`failed${today.getMonth() + 1}-${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(1),
-            //year
-            [`failed${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(1),
-            //today
-            [`failed${today.getDate()}-${
-              today.getMonth() + 1
-            }-${today.getFullYear()}`]: admin.firestore.FieldValue.increment(1),
-          },
-          { merge: true }
-        );
-    } else {
-      const doc = await admin
-        .firestore()
-        .collection("foodCategories")
-        .doc(categoryId)
-        .get();
-      if (doc.exists)
-        doc.ref.set(
-          {
-            sales: admin.firestore.FieldValue.increment(sales),
-            [`sales${today.getFullYear()}Count`]:
-              admin.firestore.FieldValue.increment(1),
-            //month
-            [`sales${today.getMonth() + 1}-${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(sales),
-            //year
-            [`sales${today.getFullYear()}`]:
-              admin.firestore.FieldValue.increment(sales),
-            //today
-            [`sales${today.getDate()}-${
-              today.getMonth() + 1
-            }-${today.getFullYear()}`]: admin.firestore.FieldValue.increment(1),
-          },
-          { merge: true }
-        );
+    const matches = await admin
+      .firestore()
+      .collection("foodCategories")
+      .where("id", "==", categoryId)
+      .get();
+    if (!matches.empty) {
+      const doc = matches.docs[0];
+      doc.ref.set(
+        {
+          failedOrders: admin.firestore.FieldValue.increment(quantity),
+          [`failed${today.getFullYear()}`]:
+            admin.firestore.FieldValue.increment(1),
+          [`failed${today.getFullYear()}`]:
+            admin.firestore.FieldValue.increment(1),
+          //month
+          [`failed${today.getMonth() + 1}-${today.getFullYear()}`]:
+            admin.firestore.FieldValue.increment(1),
+          //year
+          [`failed${today.getFullYear()}`]:
+            admin.firestore.FieldValue.increment(1),
+          //today
+          [`failed${today.getDate()}-${
+            today.getMonth() + 1
+          }-${today.getFullYear()}`]: admin.firestore.FieldValue.increment(1),
+        },
+        { merge: true }
+      );
     }
   } catch (err) {
     console.log("update order on category error ==============> ", err);
@@ -299,12 +373,13 @@ const updateOrderOnCategory = async (
 
 const addSalesToCategory = async (categoryId: string, sales: number) => {
   const today = new Date();
-  const doc = await admin
+  const matches = await admin
     .firestore()
     .collection("foodCategories")
-    .doc(categoryId)
+    .where("id", "==", categoryId)
     .get();
-  if (doc.exists)
+  if (!matches.empty) {
+    const doc = matches.docs[0];
     doc.ref.set(
       {
         sales: admin.firestore.FieldValue.increment(sales),
@@ -346,6 +421,7 @@ const addSalesToCategory = async (categoryId: string, sales: number) => {
       },
       { merge: true }
     );
+  }
 };
 
 const deleteOrderOnCategory = async (
@@ -435,12 +511,13 @@ const deleteOrderOnCategory = async (
 const addOrderToCategory = async (categoryId: string, quantity: number) => {
   try {
     const today = new Date();
-    const doc = await admin
+    const matches = await admin
       .firestore()
       .collection("foodCategories")
-      .doc(categoryId)
+      .where("id", "==", categoryId)
       .get();
-    if (doc.exists)
+    if (!matches.empty) {
+      const doc = matches.docs[0];
       doc.ref.set(
         {
           orders: admin.firestore.FieldValue.increment(quantity),
@@ -483,6 +560,7 @@ const addOrderToCategory = async (categoryId: string, quantity: number) => {
         },
         { merge: true }
       );
+    }
   } catch (err) {
     console.log("add to category error ===========> ", err);
   }
@@ -777,12 +855,12 @@ export const onOrderDeleted = async (data: orderType) => {
 
 export const onOrderAdded = async (data: orderType) => {
   const categories = getCategoriesFromOrder(data);
+  console.log("categories ======> ", categories);
   for (const food of data.items) {
     await addOrderOnFood(food);
     if (data.csale) {
       addSaleOnFood(food);
-      console.log(food);
-      addSalesToCategory(food.itemCategory, food.price);
+      addSalesToCategory(food.itemCategory, food.price * food.quantity);
     }
   }
   for (const category of categories) {
@@ -799,28 +877,30 @@ export const onUpdateOrder = async (
 ) => {
   const order = (await snap.after.data()) as orderType;
   const categories = getCategoriesFromOrder(order);
+  functions.logger.log(categories);
   if (order.completed) {
     for (const food of order.items) {
       await addSaleOnFood(food);
       //await addOrderOnFood(food);
+      await addSalesToCategory(food.itemCategory, food.price);
     }
-    for (const category of categories)
-      updateOrderOnCategory(
-        category.id,
-        category.quantity,
-        category.totalSales,
-        false
-      );
+    // for (const category of categories) {
+    //   await updateOrderOnCategory(
+    //     category.id,
+    //     category.quantity,
+    //     category.totalSales,
+    //     false
+    //   );
+    // }
 
     await addOrderCompletedToGlobals(order.totalPrice);
   } else if (order.failed) {
     for (const food of order.items) await addOrderFailureOnFood(food);
     for (const category of categories)
-      updateOrderOnCategory(
+      await updateOrderFailedOnCategory(
         category.id,
         category.quantity,
-        category.totalSales,
-        true
+        category.totalSales
       );
     await addOrderFailureToGlobals();
   }

@@ -1,5 +1,6 @@
 import { getIdToken, signInWithCustomToken } from "firebase/auth";
 import { NextPage } from "next";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
@@ -50,6 +51,9 @@ const ChangeInfo: NextPage = () => {
   if (error) {
     return (
       <div className={`flex items-center justify-center w-screen h-screen`}>
+        <Head>
+          <title>Homiezfoods - Change Account Info</title>
+        </Head>
         <p className={`text-md`}>
           {error},
           <Link href="/">
@@ -65,6 +69,9 @@ const ChangeInfo: NextPage = () => {
     <div
       className={`w-full h-screen flex opacity-40 justify-center items-center`}
     >
+      <Head>
+        <title>Homiezfoods - Change Account Info</title>
+      </Head>
       <Loader />
     </div>
   );

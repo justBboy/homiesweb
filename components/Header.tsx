@@ -9,7 +9,7 @@ import {
   AiOutlineShareAlt,
   AiOutlineUser,
 } from "react-icons/ai";
-import { MdOutlineAccountCircle, MdOutlineVerifiedUser } from "react-icons/md";
+import { MdOutlineVerifiedUser } from "react-icons/md";
 import { RiAccountBoxLine } from "react-icons/ri";
 import foodChoiceAnimation from "../animations/food-choice.json";
 import vegetableAnim from "../animations/clean-vegetable.json";
@@ -22,13 +22,9 @@ import ConfirmModal from "./ConfirmModal";
 import { GoPrimitiveDot } from "react-icons/go";
 import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
 import { useAppDispatch, useAppSelector } from "../features/hooks";
-import { selectCategories } from "../features/categories/categoriesSlice";
-import { collection, doc, getDoc } from "firebase/firestore";
 import { clearCart, selectCarts } from "../features/cart/cartSlice";
-import { FaRegUser } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { setRefCode } from "../features/auth/authSlice";
-import axios from "../libs/axios";
 
 interface props {
   scrolled?: boolean;
@@ -137,7 +133,7 @@ const Header: React.FC<props> = ({
           background:
             "radial-gradient(circle, rgba(234,88,12,1) 35%, rgba(255,131,0,1) 100%)",
         }}
-        className={`w-full sm:px-10 px-3 bg-orange-600 transition-all duration-1000 ${
+        className={`w-full sm:px-10 px-3 transition-all duration-1000 ${
           scrolled ? "opacity-0 h-0" : "opacity-1 h-[60px]"
         }`}
       >
@@ -367,11 +363,7 @@ const Header: React.FC<props> = ({
       </RightModal>
       {!withoutSearch && (
         <div
-          style={{
-            background:
-              "radial-gradient(circle, rgba(234,88,12,1) 35%, rgba(255,131,0,1) 100%)",
-          }}
-          className={`relative w-full bg-orange-600 py-10 transition-transform duration-1000`}
+          className={`relative w-full py-10 transition-transform duration-1000`}
         >
           <div className="absolute hidden sm:flex z-[0] translate-y-[35%] sm:translate-y-[-20%] h-[150px] flex items-center justify-between w-full">
             <div className="w-[100px] sm:w-[20%] lg:translate-y-[-20%] h-[150px] ">

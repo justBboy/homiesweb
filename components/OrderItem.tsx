@@ -16,7 +16,7 @@ const OrderItem: React.FC<props> = ({ order }) => {
           <div className={`sm:w-[180px] w-[220px] aspect-[3.378/1] relative`}>
             <Image
               layout="fill"
-              src="/images/logo-no-bg.png"
+              src="/v1656606687/logo-no-bg_luwdcs.png"
               className={`cursor-pointer`}
               alt="Homiez Foods logo"
             />

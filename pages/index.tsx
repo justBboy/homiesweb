@@ -1,16 +1,11 @@
-import { onAuthStateChanged } from "firebase/auth";
 import type { NextPage } from "next";
 import { useEffect, useState } from "react";
-import { AiOutlineLoading } from "react-icons/ai";
 import { Categories, Header } from "../components";
 import BottomModal from "../components/BottomModal";
 import FoodItem from "../components/FoodItem";
 import FoodShow from "../components/FoodShow";
-import { selectUser, setUser } from "../features/auth/authSlice";
 import { useAppDispatch, useAppSelector } from "../features/hooks";
 import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
-import { FoodType } from "../features/types";
-import { auth } from "../libs/Firebase";
 import axios from "../libs/axios";
 import {
   foodType,
@@ -19,10 +14,13 @@ import {
 } from "../features/foods/foodsSlice";
 import { selectCategories } from "../features/categories/categoriesSlice";
 import Loader from "../components/Loader";
+import Head from "next/head";
+import { useAlert } from "react-alert";
 
 const Home: NextPage = () => {
   const dispatch = useAppDispatch();
   const { user, completed } = useFirebaseAuth();
+  const alert = useAlert();
   const [scrolled, setScrolled] = useState(false);
   const [selectedFood, setSelectedFood] = useState<{
     id: string;
@@ -43,6 +41,7 @@ const Home: NextPage = () => {
   const categories = useAppSelector(selectCategories);
   const [error, setError] = useState("");
   const [searchFoods, setSearchFoods] = useState<foodType[]>([]);
+  const [inWorkingHours, setInWorkingHours] = useState(true);
   const [searchTimer, setSearchTimer] = useState<{ timer: any; last: number }>({
     timer: undefined,
     last: 0,
@@ -59,6 +58,22 @@ const Home: NextPage = () => {
       window.removeEventListener("scroll", handleScrolled);
     };
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const res = await axios.get("/users/serviceGlobals");
+      const data = res.data;
+      setInWorkingHours(data.inWorkingHours);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (inWorkingHours) {
+      alert.info(
+        "Currently Not In Working Hours, Orders will be held until work starts"
+      );
+    }
+  }, [inWorkingHours]);
 
   useEffect(() => {
     (async () => {
@@ -90,7 +105,7 @@ const Home: NextPage = () => {
           if (setFoodsLoading) setFoodsLoading(false);
           if (searchRes.data.error) return setError(searchRes.data.error);
           setSearchFoods(searchRes.data);
-        }, 1000);
+        }, 800);
         setSearchTimer({
           last: Date.now(),
           timer: timer,
@@ -98,6 +113,8 @@ const Home: NextPage = () => {
       })();
     } else {
       setSearchFoods([]);
+      if (setFoodsLoading) setFoodsLoading(false);
+      if (searchTimer.timer) clearTimeout(searchTimer.timer);
     }
   }, [search]);
 
@@ -150,6 +167,9 @@ const Home: NextPage = () => {
   if (completed) {
     return (
       <div className={`w-[100vw] overflow-x-hidden min-h-[100vh] bg-graybg`}>
+        <Head>
+          <title>Homiezfoods - Home</title>
+        </Head>
         <div
           style={{
             background:
@@ -231,7 +251,9 @@ const Home: NextPage = () => {
                   )}
               </div>
               {foodsLoading && (
-                <div className={`w-full flex justify-center mt-10`}>
+                <div
+                  className={`w-full flex justify-center fixed bottom-0 p-5 left-0`}
+                >
                   <Loader />
                 </div>
               )}

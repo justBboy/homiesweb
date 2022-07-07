@@ -3,19 +3,36 @@ import { auth } from "../../libs/Firebase";
 import { RootState } from "../store";
 import { getOrdersApi, placeOrderManualApi } from "./OrdersApi";
 
+export type orderLocationType = {
+  locationStreet: string;
+  locationLngLat: {
+    longitude: number;
+    latitude: number;
+  };
+};
+
+export type distanceFromUsType = {
+  distance: { text: string; value: number };
+  duration: { text: string; value: number };
+};
+
 export type orderType = {
   id: string;
   totalPrice: number;
   customerName?: string;
   customerPhone?: string;
   createdBy: string;
+  hasRefCode?: boolean;
   failed?: boolean;
   completed?: boolean;
-  hasRefCode?: boolean;
+  viewed?: boolean;
+  ongoing?: boolean;
+  location?: orderLocationType;
+  distanceFromUs?: distanceFromUsType | null;
   items: {
     id: string;
-    itemCategory: string;
     foodName: string;
+    itemCategory: string;
     price: number;
     quantity: number;
   }[];
@@ -100,8 +117,15 @@ export const getOrders = createAsyncThunk(
 
 export const placeOrderManual = createAsyncThunk(
   "orders/add",
-  async (foods: { id: string; quantity: number }[]) => {
-    const res = await placeOrderManualApi(foods);
+  async (data: {
+    foods: { id: string; quantity: number }[];
+    locationStreet: string;
+    locationLngLat: {
+      longitude: number;
+      latitude: number;
+    };
+  }) => {
+    const res = await placeOrderManualApi(data);
     return res;
   }
 );

@@ -18,6 +18,7 @@ import { validateLoginForm } from "../features/validators";
 import { auth } from "../libs/Firebase";
 import axios from "../libs/axios";
 import useFirebaseAuth from "../features/hooks/useFirebaseAuth";
+import Head from "next/head";
 
 export type loginFormErrors = {
   phone: string;
@@ -42,6 +43,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const { createRecaptcha } = useRecaptcha("recaptcha-div");
   const [refCode, setRefCode] = useState("");
+  const [openConfirmModal, setOpenConfirmModal] = useState(false);
   const [recaptchaLoading, setRecaptchaLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] =
     useState<ConfirmationResult>();
@@ -99,6 +101,7 @@ const Login = () => {
     try {
       await sendVerification(data.phone);
       setLoading(false);
+      setOpenConfirmModal(true);
     } catch (err) {
       console.log(err);
       setError("There was an error verifiying, please try later");
@@ -112,21 +115,22 @@ const Login = () => {
       try {
         const { user } = await confirmationResult.confirm(code);
         setVerificationComplete(true);
+        dispatch(
+          setUser({
+            uid: user.uid,
+            phone: user.phoneNumber,
+            email: user.email,
+            username: user.displayName,
+          })
+        );
         setTimeout(() => {
-          dispatch(
-            setUser({
-              uid: user.uid,
-              phone: user.phoneNumber,
-              email: user.email,
-              username: user.displayName,
-            })
-          );
           if (user.email && user.displayName) {
             const next = router.query["next"]?.toString() || "/";
             router.push(next);
           }
-          setVerificationLoading(false);
+          setOpenConfirmModal(false);
         }, 1000);
+        setVerificationLoading(false);
       } catch (err) {
         setVerificationLoading(false);
         if (typeof err === "object") {
@@ -134,11 +138,13 @@ const Login = () => {
             setValidationError("Invalid verification code");
           if ((err as any).code === "auth/too-many-requests")
             setValidationError("Too Many Requests, try again later");
-          else setValidationError((err as any).toString());
-        } else if (typeof err === "string") setValidationError(err);
+          else setValidationError("There was an error, please try again");
+        } else if (typeof err === "string")
+          setValidationError("There was an error, please try again");
       }
     }
   };
+  console.log(user);
   const handleUpdateDetails = async () => {
     setLoading(true);
     setError("");
@@ -156,9 +162,9 @@ const Login = () => {
           token,
         });
         if (res.data.error) {
-          setLoading(false);
-          return setError(res.data.error);
+          //setError(res.data.error);
         }
+        setLoading(false);
         await signInWithCustomToken(auth, res.data.customToken);
       } catch (err) {
         if (typeof err === "object") {
@@ -214,9 +220,16 @@ const Login = () => {
       setRefCode(srefCode);
     }
   }, [srefCode]);
+
+  console.log(openConfirmModal);
   return (
-    <div className={`w-screen min-h-screen bg-graybg flex items-center`}>
-      {confirmationResult && !user && (
+    <div
+      className={`w-screen min-h-screen bg-graybg flex items-center animate__animated animate__fadeIn`}
+    >
+      <Head>
+        <title>Homiezfoods - login</title>
+      </Head>
+      {confirmationResult && openConfirmModal && (
         <CenterModal show={true}>
           <div className={`w-full flex flex-col items-center`}>
             <div

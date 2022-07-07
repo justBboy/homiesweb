@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { getIdToken } from "firebase/auth";
 import moment from "moment";
+import Head from "next/head";
 
 export type agentType = {
   uid: string;
@@ -92,7 +93,10 @@ const AgentConsole = () => {
 
   if (!loading && agent) {
     return (
-      <div className={`w-screen min-h-scren`}>
+      <div className={`w-screen min-h-screen`}>
+        <Head>
+          <title>Homiezfoods - Agent Console</title>
+        </Head>
         <Header withoutSearch />
         <div
           className={`w-full px-4 lg:max-w-[1024px] md:max-w-[768px] sm:max-w-[412px]] mx-auto h-full mt-8 lg:mb-5 mb-[280px]`}

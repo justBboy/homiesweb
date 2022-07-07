@@ -48,9 +48,9 @@ const FoodItem: React.FC<props> = ({
     <div
       onClick={handleSelectFood}
       data-aos="fade-up"
-      className="flex  flex-col sm:max-w-[400px] max-w-[280px] aspect-[] w-full cursor-pointer mb-5 mx-auto"
+      className="flex flex-col sm:max-w-[400px] max-w-[280px] w-full cursor-pointer mb-5 mx-auto"
     >
-      <div className="w-full aspect-[4/3] p-1 md:p-2 relative">
+      <div className="w-full aspect-[4/3] min-h-[150px] p-1 md:p-2 relative">
         <Image
           alt="gallery"
           loader={({ src }) => {

@@ -16,6 +16,7 @@ service cloud.firestore {
     }
     match /appGlobals/{id}{
       allow read: if isAdmin();
+      allow write: if isAdmin();
     }
     match /foods/{foodId}{
       allow read;
@@ -36,6 +37,9 @@ service cloud.firestore {
     }
     match /agentRequests/{agentRequestId}{
       allow read, delete: if isAdmin();
+    }
+    match /expoTokens/{tokenId}{
+      allow read, write;
     }
   }
 }

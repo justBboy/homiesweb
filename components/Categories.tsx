@@ -68,7 +68,7 @@ const Categories: React.FC<props> = ({
   return (
     <>
       <div
-        className={`mx-auto md:max-w-[740px] xl:max-w-[992px] rounded 2xl:max-w-[1024px] categories py-10 transition-transform duration-1000 overflow-hidden w-80% ${
+        className={`mx-auto md:max-w-[740px] xl:max-w-[992px] rounded 2xl:max-w-[1024px] categories py-1 sm:py-10 transition-transform duration-1000 overflow-hidden w-80% ${
           scrolled ? "translate-y-[-40px]" : "translate-y-[0px]"
         }`}
       >
@@ -97,7 +97,7 @@ const Categories: React.FC<props> = ({
                 onClick={() => {
                   handleChangeActive("");
                 }}
-                className={`flex items-center ml-2 min-w-[150px] w-auto rounded transition-shadow transition-500 hover:cursor-pointer relative z-10 hover:shadow-xl p-2 ${
+                className={`flex items-center justify-center flex-col ml-2 min-w-[150px] w-auto rounded transition-shadow transition-500 hover:cursor-pointer relative z-10 hover:shadow-xl p-2 ${
                   active === "" ? "shadow-xl" : "shadow-sm"
                 }`}
               >
@@ -108,7 +108,7 @@ const Categories: React.FC<props> = ({
                   className="w-[50px] h-[50px] rounded-[50%]"
                   alt="All Foods category"
                 />
-                <span className="ml-3 text-sm font-gotham whitespace-nowrap text-uppercase text-white">
+                <span className="text-sm font-gotham whitespace-nowrap text-uppercase text-white">
                   All Foods
                 </span>
               </div>
@@ -121,7 +121,7 @@ const Categories: React.FC<props> = ({
                 onClick={() => {
                   handleChangeActive(category.id);
                 }}
-                className={`flex items-center ml-2 min-w-[150px] w-auto rounded transition-shadow transition-500 hover:cursor-pointer relative z-10 hover:shadow-xl p-2 ${
+                className={`flex justify-center flex-col items-center ml-2 min-w-[150px] w-auto rounded transition-shadow transition-500 hover:cursor-pointer relative z-10 hover:shadow-xl p-2 ${
                   active === category.id ? "shadow-xl" : "shadow-sm"
                 }`}
               >
@@ -135,7 +135,7 @@ const Categories: React.FC<props> = ({
                   className="rounded-[50%]"
                   alt={`${category.name} category`}
                 />
-                <span className="ml-3 text-sm whitespace-nowrap font-gotham text-uppercase text-white">
+                <span className="text-sm whitespace-nowrap font-gotham text-uppercase text-white">
                   {category.name}
                 </span>
               </div>

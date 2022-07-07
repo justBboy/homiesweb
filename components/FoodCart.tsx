@@ -34,10 +34,20 @@ const FoodCart: React.FC<props> = ({ name, price, img, quantity, id }) => {
       <div className={`w-1/3`}>
         <img className={"h-full"} src={img} alt={name} />
       </div>
-      <div className={`w-2/3 flex flex-col justify-center items-center h-full`}>
-        <h3 className={"font-gotham text-center text-md"}>{name}</h3>
-        <p className={`font-gothamThin text-md text-slate-600`}>₵{price}</p>
-        <div className={`w-full flex justify-end mt-2`}>
+      <div
+        className={`w-2/3 flex flex-col justify-center items-center h-full pr-6`}
+      >
+        <h3
+          className={
+            "max-f-cart font-gotham text-center md:text-[0.9vw] sm:text-[1.1vw] text-[2vw]"
+          }
+        >
+          {name}
+        </h3>
+        <p className={`font-gothamThin text-md text-slate-600 self-end`}>
+          ₵{price}
+        </p>
+        <div className={`w-full flex justify-end`}>
           <input
             type="number"
             value={number}

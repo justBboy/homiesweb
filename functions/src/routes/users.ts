@@ -1,11 +1,16 @@
 import * as express from "express";
+import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as joi from "joi";
 import { v4 as uuidv4 } from "uuid";
 import { foodsIndex, ordersIndex } from "../config/algolia";
 import { transporter } from "../config/nodemailer";
-import { orderType, foodType } from "../constants/types";
-import { baseURL, phoneNumberPattern } from "../constants/utils";
+import { orderType, foodType, orderLocationType } from "../constants/types";
+import {
+  generateOrderId,
+  getDistanceFromUs,
+  phoneNumberPattern,
+} from "../constants/utils";
 
 const router = express.Router();
 
@@ -25,6 +30,7 @@ router.get("/getCategories", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -49,6 +55,7 @@ router.get("/foodGlobals", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -72,6 +79,7 @@ router.get("/orderGlobals", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -87,13 +95,15 @@ router.get("/foods", async (req, res) => {
     let fRes: any;
     let lastDoc: any;
     if (lastDocId) {
-      lastDoc = (
-        await admin
-          .firestore()
-          .collection("foods")
-          .where("id", "==", lastDocId)
-          .get()
-      ).docs[0];
+      try {
+        lastDoc = (
+          await admin
+            .firestore()
+            .collection("foods")
+            .where("id", "==", lastDocId)
+            .get()
+        ).docs[0];
+      } catch {}
     }
     if (category) {
       if (lastDoc && category) {
@@ -117,10 +127,10 @@ router.get("/foods", async (req, res) => {
       }
     } else {
       if (lastDoc?.exists) {
-        console.log("last doc no category");
         fRes = await admin
           .firestore()
           .collection("foods")
+          .where("foodInGlobals", "==", true)
           .orderBy("name")
           .startAfter(lastDoc)
           .limit(numInPage)
@@ -130,12 +140,13 @@ router.get("/foods", async (req, res) => {
         fRes = await admin
           .firestore()
           .collection("foods")
+          .where("foodInGlobals", "==", true)
           .orderBy("name")
           .limit(numInPage)
           .get();
       }
+      functions.logger.log("docs ======> ", fRes?.docs);
     }
-    console.log(isNewSet, fRes);
     return res.json({
       isNewSet,
       items: fRes.docs.map((d: any) => {
@@ -157,6 +168,38 @@ router.get("/foods", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
+    }
+    return res.json({ error: err });
+  }
+});
+
+router.get("/food/:foodId", async (req, res) => {
+  const foodId = req.params.foodId;
+  try {
+    const fRes = await admin
+      .firestore()
+      .collection("foods")
+      .where("id", "==", foodId)
+      .get();
+    const food = fRes.docs[0].data();
+
+    return res.json({
+      id: food.id,
+      name: food.name,
+      price: food.price,
+      imgURL: food.imgURL,
+      includes: food.includes,
+      category: food.category.id,
+      available: food.available,
+    });
+  } catch (err) {
+    console.log(err);
+    if (typeof err === "object") {
+      if ((err as any).details) {
+        return res.json({ error: (err as any).details[0].message });
+      }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -170,17 +213,34 @@ const orderSchema = joi.object({
       quantity: joi.number().required(),
     })
   ),
+  location: joi
+    .object({
+      locationStreet: joi.string().required(),
+      locationLngLat: joi
+        .object({
+          longitude: joi.number().required(),
+          latitude: joi.number().required(),
+        })
+        .required(),
+    })
+    .required(),
 });
 router.post("/orderAndPayManually", async (req, res) => {
-  const data: { token: string; foods: { id: string; quantity: number }[] } =
-    req.body;
+  const data: {
+    token: string;
+    foods: { id: string; quantity: number }[];
+    location: orderLocationType;
+  } = req.body;
   try {
     const tVer = await admin.auth().verifyIdToken(data.token);
     if (!tVer) return res.json({ error: "Unauthorized" });
+    if (tVer.admin || tVer.superadmin)
+      return res.json({ error: "Admins can't buy food" });
     let hasRefCode = false;
 
     const isValid = await orderSchema.validateAsync(data);
     if (isValid.error) return res.json({ error: isValid.error.message });
+    const id = await generateOrderId(tVer.uid);
     const foods = await getFoodItemsWithIds(data.foods);
     const totalPrice = foods.reduce((p, c) => {
       return p + c.price * c.quantity;
@@ -213,12 +273,19 @@ router.post("/orderAndPayManually", async (req, res) => {
         console.log(err);
       }
     }
+    const distanceFromUs = await getDistanceFromUs(
+      data.location.locationStreet
+    );
+    console.log(distanceFromUs);
     const newOrder: orderType = {
       items: foods,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       createdBy: tVer.uid,
       hasRefCode,
-      id: uuidv4(),
+      id,
+      viewed: false,
+      location: data.location,
+      distanceFromUs,
       totalPrice: hasRefCode ? totalPrice - 1 - 0.2 : totalPrice - 0.2,
       customerName: customer.username ? customer.username : "",
       customerPhone: customer.phoneNumber ? customer.phoneNumber : "",
@@ -231,8 +298,9 @@ router.post("/orderAndPayManually", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: "There was an error, please try again" });
     }
-    return res.json({ error: err });
+    return res.json({ error: "There was an error, please try again" });
   }
 });
 
@@ -305,10 +373,10 @@ router.post("/changeDetails", async (req, res) => {
 
     await transporter.sendMail({
       subject: "Change Personal Info - HomiezFoods",
-      from: `${process.env.EMAIL_PASSWORD}`,
+      from: `Homiezfoods <${process.env.EMAIL_USER}>`,
       to: tVer.email,
       text: `Request to change your personal info, use this ${process.env.BASE_URL}/account/changeInfo/${vToken} to change your information. Link will expire in 3 hours`,
-      html: `<h3>Request to change your personal info </h3> <br /> <a href="${baseURL}/account/changeInfo/${vToken}">Click here</a> to complete process<p>Link will expire in 3 hours</p>`,
+      html: `<h3>Request to change your personal info </h3> <br /> <a href="${process.env.BASE_URL}/account/changeInfo/${vToken}">Click here</a> to complete process<p>Link will expire in 3 hours</p>`,
     });
     return res.json({ success: true });
   } catch (err) {
@@ -317,6 +385,7 @@ router.post("/changeDetails", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -368,12 +437,7 @@ router.post("/changeDetails/verifyToken", async (req, res) => {
     return res.json({ loginToken });
   } catch (err) {
     console.log(err);
-    if (typeof err === "object") {
-      if ((err as any).details) {
-        return res.json({ error: (err as any).details[0].message });
-      }
-    }
-    return res.json({ error: err });
+    return res.json({ error: "There was an error, please try again" });
   }
 });
 
@@ -447,6 +511,7 @@ router.get("/searchFood", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -502,6 +567,7 @@ router.get("/searchOrder", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }
@@ -514,12 +580,13 @@ router.get("/getAgentInfo", async (req, res) => {
     if (!token) return res.json({ error: "Not An Agent" });
     const tVer = await admin.auth().verifyIdToken(token);
     if (!tVer.uid) return res.json({ error: "Not Authorized" });
-    const agent = await admin
+    const agentRes = await admin
       .firestore()
       .collection("agents")
       .where("uid", "==", tVer.uid)
       .get();
-    if (agent.empty) return res.json({ error: "User Is not an agent" });
+    if (agentRes.empty) return res.json({ error: "User Is not an agent" });
+    const agent = agentRes.docs[0].data();
     return res.json(agent);
   } catch (err) {
     console.log(err);
@@ -527,6 +594,34 @@ router.get("/getAgentInfo", async (req, res) => {
       if ((err as any).details) {
         return res.json({ error: (err as any).details[0].message });
       }
+      return res.json({ error: err?.toString() });
+    }
+    return res.json({ error: err });
+  }
+});
+
+router.get("/serviceGlobals", async (req, res) => {
+  try {
+    const r = await admin
+      .firestore()
+      .collection("appGlobals")
+      .doc("service")
+      .get();
+    const data = r.data();
+    return res.json({
+      location: data?.location,
+      inWorkingHours: data?.inWorkingHours,
+      phoneNumber: data?.phoneNumber,
+      appVersion: data?.appVersion,
+      appUrl: data?.appUrl,
+    });
+  } catch (err) {
+    console.log(err);
+    if (typeof err === "object") {
+      if ((err as any).details) {
+        return res.json({ error: (err as any).details[0].message });
+      }
+      return res.json({ error: err?.toString() });
     }
     return res.json({ error: err });
   }

@@ -3,7 +3,6 @@ import * as admin from "firebase-admin";
 import * as joi from "joi";
 import { v4 as uuidv4 } from "uuid";
 import { transporter } from "../config/nodemailer";
-import { baseURL } from "../constants/utils";
 
 const router = express.Router();
 
@@ -122,7 +121,7 @@ router.post("/sendPasswordVerification", async (req, res) => {
       try {
         await transporter.sendMail({
           subject: "Reset Password - Homies Admin",
-          from: `${process.env.EMAIL_USER}`,
+          from: `Homiezfoods Admin ${process.env.EMAIL_USER}`,
           to: tokenRes.email,
           text: `Password Reset Verification, use this ${process.env.ADMIN_BASE_URL}/changePassword/${token} link to reset password`,
           html: `<h3>Password Reset Verification </h3> <br /> <a href="${process.env.ADMIN_BASE_URL}/changePassword/${token}">Click here</a> to reset password`,
@@ -449,11 +448,11 @@ const sendAdminRegistrationEmailLink = async (
 ) => {
   try {
     await transporter.sendMail({
-      from: `${process.env.EMAIL_USER}`,
+      from: `Homiezfoods Admin <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Admin Registration",
       text: `Admin Registration process - Click on this link and set password to become an admin ${process.env.ADMIN_BASE_URL}/register/${token}`,
-      html: `<h2>Hi ${name}, </h2> <br />Admin Registration process - Click on this link and set password to become an admin ${baseURL}/register/${token}`,
+      html: `<h2>Hi ${name}, </h2> <br />Admin Registration process - Click on this link and set password to become an admin ${process.env.ADMIN_BASE_URL}/register/${token}`,
     });
     return true;
   } catch (err) {
@@ -474,15 +473,16 @@ router.post("/registerCustomer", async (req, res) => {
   const data: { uid: string; token: string; email: string; refCode?: string } =
     req.body;
   try {
+    console.log("here");
     try {
       var tokenRes = await admin.auth().verifyIdToken(data.token);
-      console.log(tokenRes, data.uid);
       if (tokenRes.admin || tokenRes.superadmin || tokenRes.uid !== data.uid)
         return res.json({ error: "Not Authorized" });
     } catch (err) {
       console.log(err);
       return res.json({ error: "Not Authorized" });
     }
+    console.log(tokenRes);
     const isValid = await registerCustomerSchema.validateAsync(data);
     if (isValid.error) return res.json({ error: isValid.error.message });
     try {
@@ -495,7 +495,7 @@ router.post("/registerCustomer", async (req, res) => {
         .where("uid", "==", tokenRes.uid)
         .get();
       if (check.size > 0) {
-        const customToken = await admin.auth().createCustomToken(user.uid);
+        const customToken = await admin.auth().createCustomToken(tokenRes.uid);
         for (const adm of check.docs) {
           adm.ref.update({
             uid: user.uid,

@@ -19,6 +19,7 @@ const ConfirmModal: React.FC<props> = ({
   const handleClickOutside = () => {
     if (setShow) setShow(false);
   };
+
   return (
     <CenterModal show={show} onOutsideClicked={handleClickOutside}>
       <div className="w-full flex flex-col items-center">

@@ -79,7 +79,7 @@ const FoodShow: React.FC<props> = ({ selectedFood }) => {
         ref={detailsContainerRef}
         className={`flex flex-col sm:flex-row justify-center items-center relative w-full overflow-y-auto max-h-full`}
       >
-        <div className="mx-2 w-[220px] min-h-[190px] h-[190px] md:w-[320px] md:h-[220px] sm:w-[230px] w-[80%] sm:h-[240px] h-[80%] flex justify-center items-center relative">
+        <div className="mx-2 w-[250px] min-h-[190px] h-[190px] md:w-[320px] md:h-[220px]  sm:h-[240px] h-[80%] flex justify-center items-center relative">
           <Image
             layout="fill"
             className="rounded "
@@ -109,7 +109,7 @@ const FoodShow: React.FC<props> = ({ selectedFood }) => {
                 : "Added to cart"}
             </span>{" "}
           </button>
-          <div className={`overflow-y-auto`}>
+          <div className={`sm:overflow-y-auto`}>
             <h2 className={`font-gothamBlack text-2xl`}>{selectedFood.name}</h2>
             {selectedFood.includes && selectedFood.includes[0] && (
               <p className={`font-gothamItalic italic text-md mt-2`}>

@@ -3,18 +3,25 @@ import * as admin from "firebase-admin";
 import * as express from "express";
 import * as cors from "cors";
 import routes from "./routes";
-import { onOrderAdded, onOrderDeleted, onUpdateOrder } from "./constants/utils";
-import { orderType } from "./constants/types";
+import {
+  customSendPushNotification,
+  onOrderAdded,
+  onUpdateOrder,
+} from "./constants/utils";
+import { notificationTypes, orderType } from "./constants/types";
 import {
   ordersIndex,
   foodsIndex,
   customersIndex,
   agentsIndex,
 } from "./config/algolia";
+import * as dotenv from "dotenv";
 
 admin.initializeApp();
 
 const app = express();
+
+dotenv.config();
 
 //middleware
 app.use(cors());
@@ -26,7 +33,7 @@ routes(app);
 exports.app = functions.https.onRequest(app);
 
 exports.adminCreated = functions.firestore
-  .document("/admins/{adminId}")
+  .document("admins/{adminId}")
   .onCreate(async (snap, context) => {
     const admin = snap.data();
     await admin
@@ -44,7 +51,7 @@ exports.adminCreated = functions.firestore
   });
 
 exports.onAdminDeleted = functions.firestore
-  .document("/admins/{adminId}")
+  .document("admins/{adminId}")
   .onDelete(async (snap, context) => {
     await admin
       .firestore()
@@ -61,7 +68,7 @@ exports.onAdminDeleted = functions.firestore
   });
 
 exports.onAdminUpdated = functions.firestore
-  .document("/admins/{adminId}")
+  .document("admins/{adminId}")
   .onUpdate(async (snap, context) => {
     await admin.firestore().collection("appGlobals").doc("admins").set(
       {
@@ -73,7 +80,7 @@ exports.onAdminUpdated = functions.firestore
   });
 
 exports.customerCreated = functions.firestore
-  .document("/users/{userId}")
+  .document("users/{userId}")
   .onCreate(async (snap, context) => {
     const customer = snap.data();
     await customersIndex.saveObject({
@@ -97,7 +104,7 @@ exports.customerCreated = functions.firestore
   });
 
 exports.onCustomerDeleted = functions.firestore
-  .document("/users/{userId}")
+  .document("users/{userId}")
   .onDelete(async (snap, context) => {
     const customer = await snap.data();
     await customersIndex.deleteObject(customer.uid);
@@ -116,7 +123,7 @@ exports.onCustomerDeleted = functions.firestore
   });
 
 exports.onCustomerUpdated = functions.firestore
-  .document("/users/{userId}")
+  .document("users/{userId}")
   .onUpdate(async (snap, context) => {
     const customer = snap.after.data();
     await customersIndex.partialUpdateObject({
@@ -134,7 +141,7 @@ exports.onCustomerUpdated = functions.firestore
   });
 
 exports.agentRequestCreated = functions.firestore
-  .document("/agentRequests/{agentRequestId}")
+  .document("agentRequests/{agentRequestId}")
   .onCreate(async (snap, context) => {
     await admin
       .firestore()
@@ -151,7 +158,7 @@ exports.agentRequestCreated = functions.firestore
   });
 
 exports.onAgentRequestDeleted = functions.firestore
-  .document("/agentRequests/{agentRequestId}")
+  .document("agentRequests/{agentRequestId}")
   .onDelete(async (snap, context) => {
     await admin
       .firestore()
@@ -168,7 +175,7 @@ exports.onAgentRequestDeleted = functions.firestore
   });
 
 exports.onAgentRequestUpdated = functions.firestore
-  .document("/agentRequests/{agentRequestId}")
+  .document("agentRequests/{agentRequestId}")
   .onUpdate(async (snap, context) => {
     await admin.firestore().collection("appGlobals").doc("agentRequests").set(
       {
@@ -180,7 +187,7 @@ exports.onAgentRequestUpdated = functions.firestore
   });
 
 exports.agentCreated = functions.firestore
-  .document("/agents/{agentId}")
+  .document("agents/{agentId}")
   .onCreate(async (snap, context) => {
     const agent = snap.data();
     await agentsIndex.saveObject({
@@ -204,7 +211,7 @@ exports.agentCreated = functions.firestore
   });
 
 exports.onAgentDeleted = functions.firestore
-  .document("/agents/{agentId}")
+  .document("agents/{agentId}")
   .onDelete(async (snap, context) => {
     const agent = snap.data();
     await agentsIndex.deleteObject(agent.id);
@@ -223,7 +230,7 @@ exports.onAgentDeleted = functions.firestore
   });
 
 exports.onAgentUpdated = functions.firestore
-  .document("/agents/{agentId}")
+  .document("agents/{agentId}")
   .onUpdate(async (snap, context) => {
     const agent = snap.after.data();
     await agentsIndex.partialUpdateObject({
@@ -241,7 +248,7 @@ exports.onAgentUpdated = functions.firestore
   });
 
 exports.onFoodCreated = functions.firestore
-  .document("/foods/{foodId}")
+  .document("foods/{foodId}")
   .onCreate(async (snap, context) => {
     const food = snap.data();
     (async () => {
@@ -440,6 +447,7 @@ exports.onOrderCreated = functions.firestore
     await ordersIndex.saveObject({
       customerName: order.customerName,
       customerPhone: order.customerPhone,
+      id: order.id,
       objectID: order.id,
     });
     await onOrderAdded(snap.data() as orderType);
@@ -449,18 +457,53 @@ exports.onOrderUpdated = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (snap, context) => {
     const after = snap.after.data();
-    await ordersIndex.partialUpdateObject({
-      objectID: after.id,
-      customerName: after.customerName,
-      customerPhone: after.customerPhone,
-    });
+    try {
+      await ordersIndex.partialUpdateObject({
+        objectID: after.id,
+        customerName: after.customerName,
+        customerPhone: after.customerPhone,
+        id: after.id,
+      });
+    } catch {}
     await onUpdateOrder(snap);
+    if (after.completed) {
+      await customSendPushNotification(
+        after.createdBy,
+        `Order Id: ${after.id} has been marked as complete. If This is not the case, contact support from the app. Enjoy Your meal 😋`,
+        "Order Complete",
+        {
+          orderId: after.id,
+          type: notificationTypes.order,
+        }
+      );
+    } else if (after.ongoing) {
+      await customSendPushNotification(
+        after.createdBy,
+        `Order Id: ${after.id}, Rider On Its Way. Hang Tight and wait for your meal `,
+        "Rider On Way",
+        {
+          orderId: after.id,
+          type: notificationTypes.order,
+        }
+      );
+    } else if (after.failed) {
+      await customSendPushNotification(
+        after.createdBy,
+        `Order Id: ${after.id}, Order Couldn't be completed, If This is wrong, contact us`,
+        "Order Failed",
+        {
+          orderId: after.id,
+          type: notificationTypes.order,
+        }
+      );
+    }
   });
 
+//
 exports.onOrderDeleted = functions.firestore
-  .document("/orders/{orderId}")
+  .document("orders/{orderId}")
   .onDelete(async (snap, context) => {
     const order = snap.data();
     await ordersIndex.deleteObject(order.id);
-    await onOrderDeleted(snap.data() as orderType);
+    //await onOrderDeleted(snap.data() as orderType);
   });

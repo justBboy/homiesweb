@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import axios from "../../libs/axios";
 import { auth } from "../../libs/Firebase";
 import { getIdToken, updateProfile } from "firebase/auth";
+import Head from "next/head";
 export type accountFormErrors = {
   username: string | undefined;
   phoneNumber: string | undefined;
@@ -134,6 +135,9 @@ const Account = () => {
       <div
         className={`w-screen min-h-screen bg-graybg animate__animated animate__fadeIn`}
       >
+        <Head>
+          <title>Homiezfoods - Account</title>
+        </Head>
         <Header withoutSearch />
         <div className={`w-full sm:p-10 p-5`}>
           <div
@@ -182,11 +186,11 @@ const Account = () => {
                         handleFormChange("username", e.target.value)
                       }
                       type="text"
-                      className={`outline-none ${
+                      className={`outline-none pr-[20px] ${
                         form.username.active
                           ? "opacity-100 text-slate-900"
                           : "opacity-70 text-slate-600"
-                      } border border-slate-300 p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
+                      } border border-slate-300 pr-[50px] p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
                     />
                     <button
                       type="button"
@@ -225,7 +229,7 @@ const Account = () => {
                         form.email.active
                           ? "opacity-100 text-slate-900"
                           : "opacity-70 text-slate-600"
-                      } border border-slate-300 p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
+                      } border pr-[50px] border-slate-300 p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
                     />
                     <button
                       type="button"
@@ -268,7 +272,7 @@ const Account = () => {
                         form.phoneNumber.active
                           ? "opacity-100 text-slate-900"
                           : "opacity-70 text-slate-600"
-                      } border border-slate-300 p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
+                      } border pr-[50px] border-slate-300 p-3 w-full relative z-1 mx-3 mb-3 max-w-[380px] rounded-md`}
                     />
                     <button
                       type="button"

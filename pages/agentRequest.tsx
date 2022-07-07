@@ -11,6 +11,7 @@ import { auth } from "../libs/Firebase";
 import { validateEmail, validatePhone } from "../features/validators";
 import Image from "next/image";
 import Loader from "../components/Loader";
+import Head from "next/head";
 
 export type reqFormError = {
   firstName: string | undefined;
@@ -128,7 +129,10 @@ const AgentRequest = () => {
   }, [user, completed]);
   if (completed && user) {
     return (
-      <div className={`w-[100vw] overflow-x-hidden min-h-[100vh] bg-graybg`}>
+      <div className={`w-[100vw] overflow-x-hidden min-h-[100vh] bg-graybg `}>
+        <Head>
+          <title>Homiezfoods - Become An Agent</title>
+        </Head>
         <div
           style={{
             background:
@@ -138,7 +142,7 @@ const AgentRequest = () => {
         >
           <Header withoutSearch>
             <div
-              className={`w-full flex md:flex-row flex-col items-center h-full`}
+              className={`w-full flex md:flex-row flex-col items-center h-full animate__animated animate__fadeIn`}
             >
               <div
                 className={`sm:flex hidden w-1/2 aspect-[0.980/1] justify-center relative`}
